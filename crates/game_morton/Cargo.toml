@@ -1,0 +1,8 @@
+[package]
+name = "game_morton"
+version = "0.1.0"
+authors = ["TehPers <tehperz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bitintr = "0.3"

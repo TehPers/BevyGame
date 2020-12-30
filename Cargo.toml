@@ -1,0 +1,6 @@
+[workspace]
+members = ["crates/game_main", "crates/game_morton"]
+
+[profile.release]
+opt-level = 3
+lto="fat"

@@ -1,0 +1,21 @@
+pub mod camera;
+pub mod config;
+pub mod debug;
+pub mod input;
+pub mod physics;
+pub mod player;
+pub mod random;
+pub mod tiles;
+pub mod timed;
+
+pub use camera::CameraPlugin;
+pub use config::ConfigPlugin;
+pub use debug::DebugPlugin;
+pub use debug::*;
+pub use input::InputPlugin;
+pub use physics::PhysicsPlugin;
+pub use player::PlayerPlugin;
+pub use player::*;
+pub use random::RandomPlugin;
+pub use tiles::TilesPlugin;
+pub use timed::TimedPlugin;

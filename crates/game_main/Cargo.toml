@@ -1,0 +1,20 @@
+[package]
+name = "game_main"
+version = "0.1.0"
+authors = ["TehPers <tehperz@gmail.com>"]
+edition = "2018"
+
+[features]
+default = []
+trace = ["bevy/trace", "bevy/trace_chrome"]
+
+[dependencies]
+bevy = { version = "0.4", features = ["serialize"] }
+tracing = "0.1"
+derive_more = "0.99"
+serde = { version = "1", features = ["derive"] }
+game_morton = { path = "../game_morton" }
+rand = "0.8"
+rand_pcg = "0.3"
+anyhow = "1"
+crossbeam = "0.8"
