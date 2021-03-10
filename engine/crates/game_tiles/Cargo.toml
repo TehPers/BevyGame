@@ -1,0 +1,14 @@
+[package]
+name = "game_tiles"
+version = "0.1.0"
+authors = ["TehPers <tehperz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bevy = "0.4"
+serde = { version = "1", features = ["derive"] }
+derive_more = "0.99"
+tracing = "0.1"
+
+game_morton = { path = "../game_morton" }
+game_camera = { path = "../game_camera" }

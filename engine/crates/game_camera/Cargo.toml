@@ -1,0 +1,9 @@
+[package]
+name = "game_camera"
+version = "0.1.0"
+authors = ["TehPers <tehperz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bevy = "0.4"
+tracing = "0.1"

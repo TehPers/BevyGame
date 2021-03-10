@@ -1,0 +1,14 @@
+[package]
+name = "game_controller"
+version = "0.1.0"
+authors = ["TehPers <tehperz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bevy = "0.4"
+tracing = "0.1"
+
+game_camera = { path = "../game_camera" }
+game_input = { path = "../game_input" }
+game_physics = { path = "../game_physics" }
+game_core = { path = "../game_core" }

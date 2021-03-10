@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/mod_api",
+    "crates/mod_core"
+]
+
+[profile.release]
+opt-level = 3
+lto = "fat"

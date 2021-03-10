@@ -1,0 +1,25 @@
+[package]
+name = "game_main"
+version = "0.1.0"
+authors = ["TehPers <tehperz@gmail.com>"]
+edition = "2018"
+
+[features]
+default = []
+trace = ["bevy/trace", "bevy/trace_chrome"]
+
+[dependencies]
+bevy = "0.4"
+tracing = "0.1"
+rand = "0.8"
+rand_pcg = "0.3"
+
+game_morton = { path = "../game_morton" }
+game_physics = { path = "../game_physics" }
+game_tiles = { path = "../game_tiles" }
+game_camera = { path = "../game_camera" }
+game_input = { path = "../game_input" }
+game_controller = { path = "../game_controller" }
+game_core = { path = "../game_core" }
+game_world_gen = { path = "../game_world_gen" }
+game_wasi = { path = "../game_wasi" }

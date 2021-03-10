@@ -1,0 +1,10 @@
+{
+    "rust-analyzer.checkOnSave.extraArgs": [
+        "--target-dir",
+        "target/rust-analyzer"
+    ],
+    "rust-analyzer.diagnostics.disabled": [
+        "unresolved-import"
+    ],
+    "git.ignoreLimitWarning": true
+}

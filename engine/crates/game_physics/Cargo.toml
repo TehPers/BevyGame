@@ -1,0 +1,13 @@
+[package]
+name = "game_physics"
+version = "0.1.0"
+authors = ["TehPers <tehperz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bevy = "0.4"
+tracing = "0.1"
+derive_more = "0.99"
+crossbeam = "0.8"
+
+game_tiles = { path = "../game_tiles" }

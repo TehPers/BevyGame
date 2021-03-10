@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "crates/game_main",
+    "crates/game_morton",
+    "crates/game_physics",
+    "crates/game_tiles",
+    "crates/game_camera",
+    "crates/game_input",
+    "crates/game_controller",
+    "crates/game_core",
+    "crates/game_world_gen",
+    "crates/game_wasi"
+]
+
+[patch.crates-io]
+bevy = { path = "../../bevy" }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
