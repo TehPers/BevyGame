@@ -36,7 +36,7 @@ impl DebugPlugin {
                 },
                 text: Text {
                     value: "debug info".into(),
-                    font: asset_server.load("fonts/segoeui/regular.ttf"),
+                    font: asset_server.load("fonts/selawik/selawk.ttf"),
                     style: TextStyle {
                         font_size: 24.0,
                         color: Color::WHITE,
