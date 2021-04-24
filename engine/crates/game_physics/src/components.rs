@@ -1,6 +1,9 @@
 use crate::bodies::AxisAlignedBoundingBox;
-use bevy::prelude::*;
-use derive_more::{Display, From, Into};
+use game_lib::{
+    bevy::{ecs as bevy_ecs, prelude::*},
+    derive_more::{Display, From, Into},
+};
+use game_tiles::EntityWorldPosition;
 
 /// All the components needed for an entity to be registered with the physics
 /// engine.
@@ -38,19 +41,19 @@ impl Default for BodyType {
 /// physics engine.
 #[derive(Clone, Copy, PartialEq, Debug, Default, From, Into, Reflect)]
 #[reflect(Component)]
-pub struct Velocity(pub Vec2);
+pub struct Velocity(pub EntityWorldPosition);
 
 /// Acceleration in `m/s^2`. This is reset to the null vector once it has been
 /// applied by the physics engine.
 #[derive(Clone, Copy, PartialEq, Debug, Default, From, Into, Reflect)]
 #[reflect(Component)]
-pub struct Acceleration(pub Vec2);
+pub struct Acceleration(pub EntityWorldPosition);
 
 /// Force in `kg * m/s^2`. This is cleared once it has been applied by the
 /// physics engine.
 #[derive(Clone, PartialEq, Debug, Default, From, Into, Reflect)]
 #[reflect(Component)]
-pub struct Forces(pub Vec<Vec2>);
+pub struct Forces(pub Vec<EntityWorldPosition>);
 
 /// Mass in `kg`. A non-positive mass is invalid and may cause the
 /// simulation to panic or behave strangely.
@@ -69,11 +72,11 @@ impl Default for Mass {
 /// gravity.
 #[derive(Clone, Copy, PartialEq, Debug, From, Into, Reflect)]
 #[reflect(Component)]
-pub struct Gravity(pub Vec2);
+pub struct Gravity(pub EntityWorldPosition);
 
 impl Default for Gravity {
     fn default() -> Self {
-        Gravity(Vec2::unit_y() * -9.81)
+        Gravity(EntityWorldPosition::Y * -9.81)
     }
 }
 

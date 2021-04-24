@@ -1,5 +1,5 @@
-use game_tiles::{Tile, TilePosition};
+use game_tiles::{Tile, TileWorldPosition};
 
 pub trait WorldGenerator {
-    fn get(&self, position: TilePosition) -> Option<Tile>;
+    fn get(&self, position: TileWorldPosition) -> Option<Tile>;
 }

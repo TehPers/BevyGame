@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use game_lib::bevy::prelude::*;
 
 #[derive(Debug, Reflect)]
 pub struct CameraState {

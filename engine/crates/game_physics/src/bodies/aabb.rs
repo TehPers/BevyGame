@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use game_lib::bevy::prelude::*;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, PartialEq, Debug, Default, Reflect)]
@@ -30,8 +30,8 @@ impl AxisAlignedBoundingBox {
         let (bottom_left, top_right) = aabbs.iter().fold(None, |corners, cur| match corners {
             None => Some((cur.bottom_left(), cur.top_right())),
             Some((bottom_left, top_right)) => Some((
-                bottom_left.min(cur.bottom_left()),
-                top_right.max(cur.top_right()),
+                Vec2::min(bottom_left, cur.bottom_left()),
+                Vec2::max(top_right, cur.top_right()),
             )),
         })?;
         Some(AxisAlignedBoundingBox::from_corners(bottom_left, top_right))
@@ -54,7 +54,7 @@ impl AxisAlignedBoundingBox {
     }
 
     pub fn top_left(&self) -> Vec2 {
-        self.bottom_left + self.size * Vec2::unit_y()
+        self.bottom_left + self.size * Vec2::Y
     }
 
     pub fn top_right(&self) -> Vec2 {
@@ -66,7 +66,7 @@ impl AxisAlignedBoundingBox {
     }
 
     pub fn bottom_right(&self) -> Vec2 {
-        self.bottom_left + self.size + Vec2::unit_x()
+        self.bottom_left + self.size + Vec2::X
     }
 
     pub fn center(&self) -> Vec2 {
@@ -82,14 +82,8 @@ impl AxisAlignedBoundingBox {
         let quad_size = self.size() / 2.0;
         [
             AxisAlignedBoundingBox::new(bottom_left, quad_size),
-            AxisAlignedBoundingBox::new(
-                bottom_left + Vec2::unit_x() * (quad_size[0] / 2.0),
-                quad_size,
-            ),
-            AxisAlignedBoundingBox::new(
-                bottom_left + Vec2::unit_y() * (quad_size[1] / 2.0),
-                quad_size,
-            ),
+            AxisAlignedBoundingBox::new(bottom_left + Vec2::X * (quad_size[0] / 2.0), quad_size),
+            AxisAlignedBoundingBox::new(bottom_left + Vec2::Y * (quad_size[1] / 2.0), quad_size),
             AxisAlignedBoundingBox::new(bottom_left + quad_size, quad_size),
         ]
     }

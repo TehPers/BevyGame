@@ -1,10 +1,8 @@
 use crate::{bodies::AxisAlignedBoundingBox, broad_phase::BroadPhase};
-use bevy::{
-    math::Vec2,
-    prelude::*,
-    utils::{AHashExt, HashMap},
+use game_lib::{
+    bevy::{math::Vec2, prelude::*, utils::HashMap},
+    tracing::{self, instrument},
 };
-use tracing::instrument;
 
 #[derive(Reflect, Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Entry(usize);
@@ -144,7 +142,11 @@ impl<const MIN_ENTRIES: usize, const MAX_ENTRIES: usize, const MAX_DEPTH: usize>
                     if *length <= MIN_ENTRIES {
                         let mut new_node = QuadTreeNode::Leaf {
                             bounds: *node_bounds,
-                            entries: HashMap::with_capacity(*length),
+                            entries: {
+                                let mut entries = HashMap::default();
+                                entries.reserve(*length);
+                                entries
+                            },
                         };
 
                         #[instrument(skip(source, dest))]
@@ -217,13 +219,13 @@ impl<T, const MIN_ENTRIES: usize, const MAX_ENTRIES: usize, const MAX_DEPTH: usi
     pub fn new(bounds: AxisAlignedBoundingBox) -> Self {
         QuadTree {
             id: 0,
-            entries: HashMap::new(),
-            bounds: HashMap::new(),
+            entries: HashMap::default(),
+            bounds: HashMap::default(),
             root: QuadTreeNode::Leaf {
                 bounds,
-                entries: HashMap::new(),
+                entries: HashMap::default(),
             },
-            uncontained: HashMap::new(),
+            uncontained: HashMap::default(),
         }
     }
 

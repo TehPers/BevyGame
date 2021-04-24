@@ -1,6 +1,12 @@
 use crate::{CameraConfig, CameraMode, CameraState, ScaledOrthographicProjection};
-use bevy::{app::startup_stage, prelude::*};
+use game_core::GameStage;
+use game_lib::bevy::{
+    ecs as bevy_ecs,
+    prelude::*,
+    render::{camera::camera_system, RenderSystem},
+};
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
@@ -9,14 +15,34 @@ impl Plugin for CameraPlugin {
             .register_type::<CameraMode>()
             .register_type::<CameraConfig>()
             .init_resource::<CameraConfig>()
-            .add_startup_system_to_stage(startup_stage::STARTUP, crate::systems::setup.system())
-            .add_system_to_stage(
-                stage::POST_UPDATE,
-                crate::systems::camera_projection_changed.system(),
+            .add_system_set_to_stage(
+                GameStage::Startup,
+                SystemSet::new()
+                    .label(CameraPlugin)
+                    .label(CameraSystem::Setup)
+                    .in_ambiguity_set(CameraSystem::Setup)
+                    .with_system(crate::systems::setup.system()),
+            )
+            .add_system_set_to_stage(
+                GameStage::Update,
+                SystemSet::new()
+                    .label(CameraPlugin)
+                    .label(CameraSystem::DetectProjectionChange)
+                    .in_ambiguity_set(CameraSystem::DetectProjectionChange)
+                    .with_system(crate::systems::camera_projection_changed.system()),
             )
             .add_system_to_stage(
-                stage::POST_UPDATE,
-                bevy::render::camera::camera_system::<ScaledOrthographicProjection>.system(),
+                CoreStage::PostUpdate,
+                camera_system::<ScaledOrthographicProjection>
+                    .system()
+                    .label(CameraPlugin)
+                    .before(RenderSystem::VisibleEntities),
             );
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel, AmbiguitySetLabel)]
+pub enum CameraSystem {
+    Setup,
+    DetectProjectionChange,
 }

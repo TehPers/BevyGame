@@ -1,10 +1,12 @@
 use crate::runner::WasmRunner;
-use bevy::prelude::*;
+use game_lib::{
+    bevy::prelude::*,
+    tracing::{self, instrument},
+};
 use std::path::Path;
-use tracing::instrument;
 
 #[instrument(skip(commands))]
-pub fn setup_runner(commands: &mut Commands) {
+pub fn setup_runner(mut commands: Commands) {
     // TODO: actually load module properly from a directory
     let runner = WasmRunner::new(Path::new("bin/mods")).unwrap();
     commands.insert_resource(runner);

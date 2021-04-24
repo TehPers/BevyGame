@@ -1,6 +1,7 @@
 use crate::plugins::config::DebugConfig;
-use bevy::prelude::*;
+use game_lib::bevy::{ecs as bevy_ecs, prelude::*};
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
 pub struct ConfigPlugin;
 
 impl Plugin for ConfigPlugin {

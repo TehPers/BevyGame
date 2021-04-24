@@ -1,4 +1,4 @@
-use bevy::{
+use game_lib::bevy::{
     prelude::*,
     reflect::Reflect,
     render::camera::{CameraProjection, DepthCalculation, WindowOrigin},

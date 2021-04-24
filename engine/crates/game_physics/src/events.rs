@@ -1,13 +1,13 @@
-use bevy::prelude::*;
-use game_tiles::{Tile, TilePosition};
+use game_lib::bevy::prelude::*;
+use game_tiles::{EntityWorldPosition, Tile, TileWorldPosition};
 
 /// A collision between an entity and a tile.
 #[derive(Clone, Debug, Reflect)]
 pub struct TileCollision {
     pub entity: Entity,
-    pub entity_velocity: Vec2,
+    pub entity_velocity: EntityWorldPosition,
     pub tile: Tile,
-    pub tile_position: TilePosition,
+    pub tile_position: TileWorldPosition,
 }
 
 /// A collision between two bodies.

@@ -2,52 +2,64 @@ use crate::{
     camera::{ProjectionExt, ScaledOrthographicProjection},
     controller::Player,
     input::CursorState,
-    physics::{
-        bodies::AxisAlignedBoundingBox, broad_phase::QuadTreeNode, BodyType, BroadPhaseQuadTree,
-        PhysicsBundle,
-    },
+    physics::{bodies::AxisAlignedBoundingBox, BodyType, PhysicsBundle},
     plugins::{config::DebugConfig, timed::Timed},
 };
-use bevy::{
-    app::startup_stage,
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
-    prelude::*,
-    render::camera::Camera,
-};
+use game_camera::CameraPlugin;
+use game_controller::ControllerSystem;
+use game_core::{modes::ModeExt, GameStage, GlobalMode, ModeEvent};
 use game_input::InputBindings;
-use game_physics::Velocity;
+use game_lib::{
+    bevy::{
+        diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+        ecs as bevy_ecs,
+        prelude::*,
+        render::camera::Camera,
+    },
+    tracing::{self, instrument},
+};
+use game_physics::{PhysicsPlugin, Velocity};
+use game_tiles::{EntityWorldPosition, RegionWorldPosition};
 use std::{fmt::Write, time::Duration, writeln};
-use tracing::instrument;
-
-struct QuadTreeRegion;
 
 struct DebugText;
 
+#[derive(Clone, Debug)]
+struct Styles {
+    normal: TextStyle,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
 pub struct DebugPlugin;
 
 impl DebugPlugin {
     #[instrument(skip(commands, asset_server))]
-    fn setup_debug_text(commands: &mut Commands, asset_server: Res<AssetServer>) {
+    fn setup_debug_text(mut commands: Commands, asset_server: Res<AssetServer>) {
+        let fonts = Styles {
+            normal: TextStyle {
+                font: asset_server.load("fonts/selawik/selawk.ttf"),
+                font_size: 18.0,
+                color: Color::WHITE,
+            },
+        };
+
         commands
-            .spawn(TextBundle {
+            .spawn_bundle(TextBundle {
                 style: Style {
                     align_self: AlignSelf::FlexEnd,
-                    ..Default::default()
-                },
-                text: Text {
-                    value: "debug info".into(),
-                    font: asset_server.load("fonts/selawik/selawk.ttf"),
-                    style: TextStyle {
-                        font_size: 24.0,
-                        color: Color::WHITE,
+                    position: Rect {
+                        top: Val::Px(0.0),
+                        left: Val::Px(0.0),
                         ..Default::default()
                     },
                     ..Default::default()
                 },
-                transform: Transform::from_translation(Vec3::zero()),
+                text: Text::default(),
                 ..Default::default()
             })
-            .with(DebugText);
+            .insert(DebugText);
+
+        commands.insert_resource(fonts);
     }
 
     #[instrument(skip(
@@ -55,25 +67,29 @@ impl DebugPlugin {
         cursor_state,
         windows,
         input_config,
+        styles,
         camera_query,
         player_query,
-        text_query
+        text_query,
+        visible_regions
     ))]
     fn update_debug_text(
         diagnostics: Res<Diagnostics>,
         cursor_state: Res<CursorState>,
         windows: Res<Windows>,
         input_config: Res<InputBindings>,
+        styles: Res<Styles>,
         camera_query: Query<(&ScaledOrthographicProjection, &Camera, &Transform)>,
         player_query: Query<&Velocity, With<Player>>,
         mut text_query: Query<&mut Text, With<DebugText>>,
+        visible_regions: Query<&RegionWorldPosition>,
     ) {
-        let mut new_text = String::new();
+        let mut new_text = String::with_capacity(1000);
 
         // FPS
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(average) = fps.average() {
-                writeln!(new_text, "FPS: {:.0}", average).unwrap();
+            if let (Some(average), Some(duration)) = (fps.average(), fps.duration()) {
+                writeln!(new_text, "FPS: {:.0} ({}ms)", average, duration.as_millis()).unwrap();
             } else {
                 writeln!(new_text, "FPS: ???").unwrap();
             }
@@ -120,6 +136,13 @@ impl DebugPlugin {
             }
         }
 
+        writeln!(
+            new_text,
+            "Rendered regions: {}",
+            visible_regions.iter().count()
+        )
+        .unwrap();
+
         // Player info
         for velocity in player_query.iter() {
             writeln!(new_text, "Player velocity: {}", velocity.0).unwrap();
@@ -130,13 +153,17 @@ impl DebugPlugin {
         for (input, action) in input_config.keyboard.iter() {
             writeln!(new_text, "[{:?}]: {:?}", input, action).unwrap();
         }
-
         for (input, action) in input_config.mouse.iter() {
             writeln!(new_text, "[{:?}]: {:?}", input, action).unwrap();
         }
 
+        // Update text
+        let new_text = vec![TextSection {
+            value: new_text,
+            style: styles.normal.clone(),
+        }];
         for mut text in text_query.iter_mut() {
-            text.value.clone_from(&new_text);
+            text.sections.clone_from(&new_text);
         }
     }
 
@@ -144,9 +171,6 @@ impl DebugPlugin {
     fn debug_input(mut config: ResMut<DebugConfig>, input: Res<Input<KeyCode>>) {
         if input.just_released(KeyCode::F1) {
             config.enable_teleporting = !config.enable_teleporting;
-        }
-        if input.just_released(KeyCode::F2) {
-            config.show_quadtree = !config.show_quadtree;
         }
     }
 
@@ -163,14 +187,14 @@ impl DebugPlugin {
                     cursor_state.world_position.into(),
                     bounds.size(),
                 );
-                velocity.0 = Vec2::zero();
+                velocity.0 = EntityWorldPosition::ZERO;
             }
         }
     }
 
     #[instrument(skip(commands, materials, input, cursor_state))]
     fn spawn_on_click(
-        commands: &mut Commands,
+        mut commands: Commands,
         mut materials: ResMut<Assets<ColorMaterial>>,
         input: Res<Input<MouseButton>>,
         cursor_state: Res<CursorState>,
@@ -178,7 +202,7 @@ impl DebugPlugin {
         if input.pressed(MouseButton::Right) {
             let size = Vec2::new(0.1, 0.1);
             commands
-                .spawn(SpriteBundle {
+                .spawn_bundle(SpriteBundle {
                     sprite: Sprite {
                         size,
                         ..Default::default()
@@ -187,7 +211,7 @@ impl DebugPlugin {
                     material: materials.add(ColorMaterial::color(Color::WHITE)),
                     ..Default::default()
                 })
-                .with_bundle(PhysicsBundle {
+                .insert_bundle(PhysicsBundle {
                     bounds: AxisAlignedBoundingBox::from_center(
                         cursor_state.world_position.into(),
                         size,
@@ -195,92 +219,58 @@ impl DebugPlugin {
                     body_type: BodyType::Static,
                     ..Default::default()
                 })
-                .with(Timed::new(Duration::from_secs_f32(3.0)));
+                .insert(Timed::new(Duration::from_secs_f32(3.0)));
         }
-    }
-
-    #[instrument(skip(commands, materials, quadtree, query))]
-    fn show_quads(
-        commands: &mut Commands,
-        config: Res<DebugConfig>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-        quadtree: ChangedRes<BroadPhaseQuadTree>,
-        query: Query<Entity, With<QuadTreeRegion>>,
-    ) {
-        if !config.show_quadtree {
-            return;
-        }
-
-        // Remove existing markers
-        for entity in query.iter() {
-            commands.despawn(entity);
-        }
-
-        fn create_markers<
-            const MIN_ENTRIES: usize,
-            const MAX_ENTRIES: usize,
-            const MAX_DEPTH: usize,
-        >(
-            commands: &mut Commands,
-            materials: &mut Assets<ColorMaterial>,
-            node: &QuadTreeNode<MIN_ENTRIES, MAX_ENTRIES, MAX_DEPTH>,
-        ) {
-            match node {
-                QuadTreeNode::Leaf { bounds, .. } => {
-                    create_marker(commands, materials, *bounds);
-                }
-                QuadTreeNode::Inner {
-                    bounds, children, ..
-                } => {
-                    create_marker(commands, materials, *bounds);
-                    for child in children.iter() {
-                        create_markers(commands, materials, child);
-                    }
-                }
-            }
-        }
-
-        fn create_marker(
-            commands: &mut Commands,
-            materials: &mut Assets<ColorMaterial>,
-            bounds: AxisAlignedBoundingBox,
-        ) {
-            commands
-                .spawn(SpriteBundle {
-                    sprite: Sprite {
-                        size: bounds.size(),
-                        ..Default::default()
-                    },
-                    transform: Transform::from_translation(bounds.center().extend(0.0)),
-                    material: materials.add(ColorMaterial::color(*Color::WHITE.clone().set_a(0.1))),
-                    visible: Visible {
-                        is_visible: true,
-                        is_transparent: true,
-                    },
-                    ..Default::default()
-                })
-                .with(QuadTreeRegion);
-        }
-
-        let materials = &mut *materials;
-        create_markers(commands, materials, quadtree.root());
     }
 }
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_system_to_stage(
-            startup_stage::PRE_STARTUP,
-            Self::setup_debug_text.system(),
+        app.add_system_set_to_stage(
+            GameStage::PreUpdate,
+            SystemSet::new()
+                .label(DebugPlugin)
+                .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Enter))
+                .with_system(Self::setup_debug_text.system()),
         )
-        .add_system_to_stage(stage::EVENT, Self::debug_input.system())
-        .add_system_to_stage(stage::UPDATE, Self::teleport_on_click.system())
-        .add_system_to_stage(stage::UPDATE, Self::spawn_on_click.system())
-        .add_system_to_stage(stage::UPDATE, Self::update_debug_text.system())
-        .add_stage_before(
-            stage::POST_UPDATE,
-            "show_quads",
-            SystemStage::single(Self::show_quads.system()),
+        .add_system_set_to_stage(
+            GameStage::Update,
+            SystemSet::new()
+                .label(DebugPlugin)
+                .label(DebugSystem::ProcessInput)
+                .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Active))
+                .with_system(Self::debug_input.system()),
+        )
+        .add_system_set_to_stage(
+            GameStage::Update,
+            SystemSet::new()
+                .label(DebugPlugin)
+                .label(DebugSystem::HandleInput)
+                .before(PhysicsPlugin)
+                .after(ControllerSystem::HandleControls)
+                .after(DebugSystem::ProcessInput)
+                .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Active))
+                .with_system(Self::teleport_on_click.system())
+                .with_system(Self::spawn_on_click.system()),
+        )
+        .add_system_set_to_stage(
+            GameStage::Update,
+            SystemSet::new()
+                .label(DebugPlugin)
+                .label(DebugSystem::ShowDebugInfo)
+                .after(PhysicsPlugin)
+                .after(DebugSystem::HandleInput)
+                .after(ControllerSystem::UpdateCamera)
+                .after(CameraPlugin)
+                .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Active))
+                .with_system(Self::update_debug_text.system()),
         );
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
+pub enum DebugSystem {
+    ProcessInput,
+    HandleInput,
+    ShowDebugInfo,
 }

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use game_lib::bevy::prelude::*;
 
 #[derive(Clone, Debug, Default, Reflect)]
 pub struct CursorState {

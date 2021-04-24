@@ -1,6 +1,9 @@
-use bevy::prelude::*;
+use game_core::GameStage;
+use game_lib::{
+    bevy::{ecs as bevy_ecs, prelude::*},
+    tracing::{self, instrument},
+};
 use std::time::Duration;
-use tracing::instrument;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct Timed(Duration);
@@ -23,19 +26,20 @@ impl Timed {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
 pub struct TimedPlugin;
 
 impl TimedPlugin {
     #[instrument(skip(commands, time, query))]
     fn update_lifetimes(
-        commands: &mut Commands,
+        mut commands: Commands,
         time: Res<Time>,
         mut query: Query<(Entity, &mut Timed)>,
     ) {
         for (entity, mut timed) in query.iter_mut() {
             timed.update(time.delta());
             if timed.remaining() <= Duration::ZERO {
-                commands.despawn_recursive(entity);
+                commands.entity(entity).despawn_recursive();
             }
         }
     }
@@ -43,6 +47,11 @@ impl TimedPlugin {
 
 impl Plugin for TimedPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system_to_stage(stage::PRE_UPDATE, Self::update_lifetimes.system());
+        app.add_system_set_to_stage(
+            GameStage::PreUpdate,
+            SystemSet::new()
+                .label(TimedPlugin)
+                .with_system(Self::update_lifetimes.system()),
+        );
     }
 }

@@ -1,6 +1,8 @@
 use crate::module::ModuleManifest;
-use anyhow::{anyhow, bail, Context};
-use bevy::utils::{HashMap, HashSet};
+use game_lib::{
+    anyhow::{anyhow, bail, Context},
+    bevy::utils::{HashMap, HashSet},
+};
 use std::{
     fmt::{Debug, Formatter},
     fs::File,
@@ -40,7 +42,7 @@ pub struct WasmRunner {
 }
 
 impl WasmRunner {
-    pub fn new(bin_path: &Path) -> anyhow::Result<Self> {
+    pub fn new(bin_path: &Path) -> game_lib::anyhow::Result<Self> {
         let mod_path: PathBuf = [bin_path, Path::new("mods")].iter().collect();
         let mod_data_path: PathBuf = [bin_path, Path::new("mod_data")].iter().collect();
 
@@ -57,7 +59,8 @@ impl WasmRunner {
                 path
             };
             let manifest_file = File::open(manifest_path)?;
-            let manifest: ModuleManifest = serde_json::from_reader(BufReader::new(manifest_file))?;
+            let manifest: ModuleManifest =
+                game_lib::serde_json::from_reader(BufReader::new(manifest_file))?;
 
             // Verify entry module is in the same directory
             let entry_path: PathBuf = [&dir_path, &manifest.entry].iter().collect();
@@ -152,7 +155,7 @@ impl WasmRunner {
         })
     }
 
-    pub fn on_update(&mut self, params: &[Val]) -> anyhow::Result<()> {
+    pub fn on_update(&mut self, params: &[Val]) -> game_lib::anyhow::Result<()> {
         self.call_all_if_exists("on_update", params)
             .into_iter()
             .map(|(_, result)| result.map(|_| ()))
@@ -163,7 +166,7 @@ impl WasmRunner {
         &mut self,
         function_name: &str,
         params: &[Val],
-    ) -> HashMap<&ModuleInfo, anyhow::Result<Option<Box<[Val]>>>> {
+    ) -> HashMap<&ModuleInfo, game_lib::anyhow::Result<Option<Box<[Val]>>>> {
         self.active_modules
             .iter()
             .map(|(_id, active_module)| {

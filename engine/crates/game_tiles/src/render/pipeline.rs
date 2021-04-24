@@ -1,61 +1,23 @@
-use bevy::{
+use game_core::systems::RequiredAssetLoader;
+use game_lib::bevy::{
     prelude::*,
     reflect::TypeUuid,
-    render::{
-        pipeline::{
-            BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-            CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
-            RasterizationStateDescriptor, StencilStateDescriptor, StencilStateFaceDescriptor,
-        },
-        shader::ShaderStages,
-        texture::TextureFormat,
-    },
+    render::{pipeline::PipelineDescriptor, shader::ShaderStages},
 };
-use tracing::instrument;
 
-pub const PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13955077706301965444);
+pub const REGION_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x5BA3E190095C409A);
+pub const REGION_MESH_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 0x3F8EB05B6CD0403A);
+pub const REGION_TEXTURE_ATLAS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(TextureAtlas::TYPE_UUID, 0x3A06EC1D04544655);
 
-#[instrument(skip(asset_server))]
-pub fn build_pipeline(asset_server: &AssetServer) -> PipelineDescriptor {
+pub fn build_region_pipeline(asset_loader: &mut RequiredAssetLoader) -> PipelineDescriptor {
     PipelineDescriptor {
-        name: Some("tiles".into()),
-        rasterization_state: Some(RasterizationStateDescriptor {
-            front_face: FrontFace::Ccw,
-            cull_mode: CullMode::None,
-            depth_bias: 0,
-            depth_bias_slope_scale: 0.0,
-            depth_bias_clamp: 0.0,
-            clamp_depth: false,
-        }),
-        depth_stencil_state: Some(DepthStencilStateDescriptor {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::LessEqual,
-            stencil: StencilStateDescriptor {
-                front: StencilStateFaceDescriptor::IGNORE,
-                back: StencilStateFaceDescriptor::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-        }),
-        color_states: vec![ColorStateDescriptor {
-            format: TextureFormat::default(),
-            color_blend: BlendDescriptor {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::OneMinusSrcAlpha,
-                operation: BlendOperation::Add,
-            },
-            alpha_blend: BlendDescriptor {
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
-            write_mask: ColorWrite::ALL,
-        }],
-        ..PipelineDescriptor::new(ShaderStages {
-            vertex: asset_server.load("shaders/tiles.vert"),
-            fragment: Some(asset_server.load("shaders/tiles.frag")),
+        name: Some("region".into()),
+        ..PipelineDescriptor::default_config(ShaderStages {
+            vertex: asset_loader.load_required("shaders/region.vert"),
+            fragment: Some(asset_loader.load_required("shaders/region.frag")),
         })
     }
 }

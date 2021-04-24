@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch (LLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceRoot}/target/cargo/debug/game_main.exe",
+      "cargo": {
+        "args": ["build"],
+        "filter": {
+          "name": "game_main",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceRoot}",
+      "sourceLanguages": ["rust"]
+    }
+  ]
+}

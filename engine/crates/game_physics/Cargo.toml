@@ -5,9 +5,6 @@ authors = ["TehPers <tehperz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bevy = "0.4"
-tracing = "0.1"
-derive_more = "0.99"
-crossbeam = "0.8"
-
-game_tiles = { path = "../game_tiles" }
+game_lib = "*"
+game_core = "*"
+game_tiles = "*"

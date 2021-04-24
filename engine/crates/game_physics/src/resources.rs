@@ -1,14 +1,11 @@
-use crate::{broad_phase::Entry, Drag, Gravity};
-use bevy::{prelude::*, utils::HashMap};
+use crate::{Drag, Gravity};
+use game_lib::bevy::prelude::*;
 use std::time::Duration;
 
 #[derive(Clone, Debug, Reflect)]
 pub struct PhysicsState {
-    #[reflect(ignore)]
-    pub interval: Duration,
-    #[reflect(ignore)]
-    pub lag: Duration,
-    pub entry_map: HashMap<Entity, Entry>,
+    pub step_timer: Timer,
+    pub queued_steps: u32,
 
     /// Global gravitational acceleration in `m/s^2`. This can be overriden
     /// with the `Gravity` component.
@@ -22,19 +19,11 @@ pub struct PhysicsState {
 impl Default for PhysicsState {
     fn default() -> Self {
         PhysicsState {
-            interval: Duration::from_secs_f32(1.0 / 60.0),
-            lag: Duration::default(),
-            entry_map: HashMap::default(),
-            gravity: Gravity::default(),
-            drag: Drag::default(),
+            // step_timer: Timer::new(Duration::from_secs_f32(1.0), true),
+            step_timer: Timer::new(Duration::from_secs_f32(1.0 / 30.0), true),
+            queued_steps: Default::default(),
+            gravity: Default::default(),
+            drag: Default::default(),
         }
-    }
-}
-
-impl PhysicsState {
-    /// Linear interpolation factor calculated from progress to
-    /// next physics update step.
-    pub fn lerp(&self) -> f32 {
-        self.lag.as_secs_f32() / self.interval.as_secs_f32()
     }
 }

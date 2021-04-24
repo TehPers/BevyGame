@@ -1,8 +1,11 @@
-use bevy::prelude::*;
-use derive_more::{Display, From, Into};
-use serde::{Deserialize, Serialize};
+use game_lib::{
+    bevy::prelude::*,
+    derive_more::{Display, From, Into},
+    serde::{Deserialize, Serialize},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Reflect)]
+#[serde(crate = "game_lib::serde")]
 pub enum Tile {
     Stone,
     Dirt,
@@ -18,10 +21,10 @@ impl Tile {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, Hash, From, Into)]
-pub struct TileSheetIndex(u32);
+pub struct TileSheetIndex(pub u16);
 
 impl TileSheetIndex {
-    pub fn into_uv(self, row_width: u32, rows: u32) -> (f32, f32) {
+    pub fn into_uv(self, row_width: u16, rows: u16) -> (f32, f32) {
         let x = self.0 % row_width;
         let y = self.0 / row_width;
         (x as f32 / row_width as f32, y as f32 / rows as f32)

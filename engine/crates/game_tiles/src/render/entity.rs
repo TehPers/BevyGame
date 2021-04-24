@@ -1,16 +1,22 @@
-use crate::render::{pipeline::PIPELINE_HANDLE, TileWorldMaterial};
-use bevy::{
+use crate::{
+    render::{
+        pipeline::{REGION_MESH_HANDLE, REGION_PIPELINE_HANDLE, REGION_TEXTURE_ATLAS_HANDLE},
+        RegionData,
+    },
+    RegionWorldPosition,
+};
+use game_lib::bevy::{
+    ecs as bevy_ecs,
     prelude::*,
     render::{pipeline::RenderPipeline, render_graph::base::MainPass},
 };
 
-use super::TileWorldVertexData;
-
-#[derive(Bundle)]
-pub struct TileWorldBundle {
-    pub material: Handle<TileWorldMaterial>,
+#[derive(Clone, Debug, Bundle)]
+pub struct RegionBundle {
+    pub position: RegionWorldPosition,
     pub mesh: Handle<Mesh>,
-    pub vertex_data: Handle<TileWorldVertexData>,
+    pub region_data: Handle<RegionData>,
+    pub texture_atlas: Handle<TextureAtlas>,
     pub main_pass: MainPass,
     pub draw: Draw,
     pub visible: Visible,
@@ -19,15 +25,16 @@ pub struct TileWorldBundle {
     pub global_transform: GlobalTransform,
 }
 
-impl Default for TileWorldBundle {
+impl Default for RegionBundle {
     fn default() -> Self {
-        TileWorldBundle {
+        RegionBundle {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
-                PIPELINE_HANDLE.typed(),
+                REGION_PIPELINE_HANDLE.typed(),
             )]),
-            mesh: Default::default(),
-            material: Default::default(),
-            vertex_data: Default::default(),
+            mesh: REGION_MESH_HANDLE.typed(),
+            texture_atlas: REGION_TEXTURE_ATLAS_HANDLE.typed(),
+            position: Default::default(),
+            region_data: Default::default(),
             main_pass: Default::default(),
             draw: Default::default(),
             visible: Default::default(),

@@ -1,7 +1,7 @@
 pub(crate) mod systems;
 
-pub mod runner;
 pub mod module;
+pub mod runner;
 
 mod plugin;
 

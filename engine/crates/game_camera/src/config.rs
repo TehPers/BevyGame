@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use game_lib::bevy::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Reflect)]
 pub enum CameraMode {
@@ -8,7 +8,11 @@ pub enum CameraMode {
 
 impl Default for CameraMode {
     fn default() -> Self {
-        CameraMode::Free
+        if cfg!(debug) {
+            CameraMode::Free
+        } else {
+            CameraMode::FollowPlayer
+        }
     }
 }
 

@@ -13,3 +13,5 @@ pub use plugin::*;
 pub use projection::*;
 pub use projection_ext::*;
 pub use state::*;
+
+game_lib::fix_bevy_derive!(game_lib::bevy);

@@ -1,27 +1,24 @@
 use crate::{CameraState, ScaledCamera2dBundle, ScaledOrthographicProjection};
-use bevy::{
-    prelude::*,
-    render::camera::{Camera, CameraProjection},
+use game_lib::{
+    bevy::{
+        prelude::*,
+        render::camera::{Camera, CameraProjection},
+    },
+    tracing::{self, instrument},
 };
-use tracing::instrument;
 
 #[instrument(skip(commands))]
-pub fn setup(commands: &mut Commands) {
-    let ui_camera = commands
-        .spawn(CameraUiBundle::default())
-        .current_entity()
-        .unwrap();
-
+pub fn setup(mut commands: Commands) {
+    let ui_camera = commands.spawn_bundle(UiCameraBundle::default()).id();
     let main_camera = commands
-        .spawn(ScaledCamera2dBundle {
+        .spawn_bundle(ScaledCamera2dBundle {
             orthographic_projection: ScaledOrthographicProjection {
                 zoom: 32.0,
                 ..Default::default()
             },
             ..Default::default()
         })
-        .current_entity()
-        .unwrap();
+        .id();
 
     commands.insert_resource(CameraState {
         main_camera,

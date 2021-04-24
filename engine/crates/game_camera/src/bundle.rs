@@ -1,5 +1,6 @@
 use crate::ScaledOrthographicProjection;
-use bevy::{
+use game_lib::bevy::{
+    ecs as bevy_ecs,
     prelude::*,
     render::{
         camera::{Camera, VisibleEntities},

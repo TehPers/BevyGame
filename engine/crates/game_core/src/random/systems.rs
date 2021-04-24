@@ -1,10 +1,12 @@
 use crate::random::{GameRandom, RandomConfig, ResetRandom};
-use bevy::prelude::*;
-use rand::SeedableRng;
-use tracing::instrument;
+use game_lib::{
+    bevy::prelude::*,
+    rand::SeedableRng,
+    tracing::{self, instrument},
+};
 
-#[instrument(skip(commands))]
-pub fn setup(commands: &mut Commands, config: Res<RandomConfig>) {
+#[instrument(skip(commands, config))]
+pub fn setup(mut commands: Commands, config: Res<RandomConfig>) {
     let random = config
         .seed
         .map(|seed| GameRandom::from_seed(seed))
@@ -13,14 +15,13 @@ pub fn setup(commands: &mut Commands, config: Res<RandomConfig>) {
     commands.insert_resource(random);
 }
 
-#[instrument(skip(event, event_reader, config, random))]
+#[instrument(skip(reset_event, config, random))]
 pub fn reset_random(
-    event: Res<Events<ResetRandom>>,
-    mut event_reader: Local<EventReader<ResetRandom>>,
+    mut reset_event: EventReader<ResetRandom>,
     config: Res<RandomConfig>,
     mut random: ResMut<GameRandom>,
 ) {
-    if event_reader.latest(&event).is_some() {
+    if reset_event.iter().last().is_some() {
         let new_random = config
             .seed
             .map(|seed| GameRandom::from_seed(seed))

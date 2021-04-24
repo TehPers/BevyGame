@@ -1,5 +1,5 @@
 use crate::ScaledOrthographicProjection;
-use bevy::{
+use game_lib::bevy::{
     prelude::*,
     render::camera::{CameraProjection, PerspectiveProjection},
 };
@@ -26,7 +26,7 @@ pub trait ProjectionExt: CameraProjection {
         // Based on https://computergraphics.stackexchange.com/a/9960
 
         // Clip space vectors
-        let pos_clip = (screen_position / screen_size) * 2.0 - Vec2::one();
+        let pos_clip = (screen_position / screen_size) * 2.0 - Vec2::ONE;
         let near_clip: Vec4 = pos_clip.extend(-1.0).extend(1.0);
         let far_clip: Vec4 = pos_clip.extend(1.0).extend(1.0);
 

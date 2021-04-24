@@ -1,8 +1,5 @@
 use crate::ActionInput;
-use bevy::{
-    prelude::*,
-    utils::{AHashExt, HashMap},
-};
+use game_lib::bevy::{prelude::*, utils::HashMap};
 
 #[derive(Clone, Debug)]
 // TODO: once bevy supports reflection for inputs, uncomment this:
@@ -15,7 +12,7 @@ pub struct InputBindings {
 impl Default for InputBindings {
     fn default() -> Self {
         // Default keyboard bindings
-        let mut keyboard = HashMap::new();
+        let mut keyboard = HashMap::default();
         keyboard.insert(KeyCode::Left, ActionInput::CameraLeft);
         keyboard.insert(KeyCode::Right, ActionInput::CameraRight);
         keyboard.insert(KeyCode::Up, ActionInput::CameraUp);
@@ -28,7 +25,7 @@ impl Default for InputBindings {
         keyboard.insert(KeyCode::Space, ActionInput::PlayerJump);
 
         // Default mouse bindings
-        let mouse = HashMap::new();
+        let mouse = HashMap::default();
 
         InputBindings { keyboard, mouse }
     }

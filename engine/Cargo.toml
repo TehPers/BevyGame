@@ -9,11 +9,21 @@ members = [
     "crates/game_controller",
     "crates/game_core",
     "crates/game_world_gen",
-    "crates/game_wasi"
+    "crates/game_wasi",
+    "crates/game_lib"
 ]
 
 [patch.crates-io]
-bevy = { path = "../../bevy" }
+game_camera = { path = "crates/game_camera" }
+game_controller = { path = "crates/game_controller" }
+game_core = { path = "crates/game_core" }
+game_input = { path = "crates/game_input" }
+game_lib = { path = "crates/game_lib" }
+game_morton = { path = "crates/game_morton" }
+game_physics = { path = "crates/game_physics" }
+game_tiles = { path = "crates/game_tiles" }
+game_wasi = { path = "crates/game_wasi" }
+game_world_gen = { path = "crates/game_world_gen" }
 
 [profile.release]
 opt-level = 3

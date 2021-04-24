@@ -1,9 +1,11 @@
 use crate::Player;
-use bevy::{prelude::*, render::camera::Camera};
 use game_camera::{CameraConfig, CameraMode, ScaledOrthographicProjection};
 use game_input::ActionInput;
+use game_lib::{
+    bevy::{prelude::*, render::camera::Camera},
+    tracing::{self, instrument},
+};
 use game_physics::Velocity;
-use tracing::instrument;
 
 #[instrument(skip(config, input))]
 pub fn cycle_camera_mode(mut config: ResMut<CameraConfig>, input: Res<Input<ActionInput>>) {
@@ -20,34 +22,35 @@ pub fn update_camera(
     config: Res<CameraConfig>,
     input: Res<Input<ActionInput>>,
     time: Res<Time>,
-    player_query: Query<&Transform, With<Player>>,
-    mut camera_query: Query<(&mut Transform, &mut ScaledOrthographicProjection), With<Camera>>,
+    player_query: Query<&Transform, (With<Player>, Changed<Transform>)>,
+    mut camera_query: Query<
+        (&mut Transform, &mut ScaledOrthographicProjection),
+        (Without<Player>, With<Camera>),
+    >,
 ) {
     match config.camera_mode {
         CameraMode::FollowPlayer => {
-            if let Some(player_transform) = player_query.iter().nth(0) {
+            if let Ok(player_transform) = player_query.single() {
                 let player_pos = player_transform.translation;
                 for (mut camera, _) in camera_query.iter_mut() {
                     camera.translation = player_pos;
                 }
-            } else {
-                warn!("camera is unable to follow the player because no player is found");
             }
         }
         CameraMode::Free => {
             // Get direction to move
             let mut direction = Vec3::default();
             if input.pressed(ActionInput::CameraUp) {
-                direction += Vec3::unit_y();
+                direction += Vec3::Y;
             }
             if input.pressed(ActionInput::CameraDown) {
-                direction -= Vec3::unit_y();
+                direction -= Vec3::Y;
             }
             if input.pressed(ActionInput::CameraLeft) {
-                direction -= Vec3::unit_x();
+                direction -= Vec3::X;
             }
             if input.pressed(ActionInput::CameraRight) {
-                direction += Vec3::unit_x();
+                direction += Vec3::X;
             }
 
             // Get amount to zoom in/out
@@ -85,10 +88,10 @@ pub fn move_player(input: Res<Input<ActionInput>>, mut query: Query<&mut Velocit
     const MOVE_SPEED: f32 = 5.0;
     let mut move_velocity = Vec2::default();
     if input.pressed(ActionInput::PlayerLeft) {
-        move_velocity -= Vec2::unit_x() * MOVE_SPEED;
+        move_velocity -= Vec2::X * MOVE_SPEED;
     }
     if input.pressed(ActionInput::PlayerRight) {
-        move_velocity += Vec2::unit_x() * MOVE_SPEED;
+        move_velocity += Vec2::X * MOVE_SPEED;
     }
 
     // Apply force

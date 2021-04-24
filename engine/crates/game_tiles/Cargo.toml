@@ -5,10 +5,8 @@ authors = ["TehPers <tehperz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bevy = "0.4"
-serde = { version = "1", features = ["derive"] }
-derive_more = "0.99"
-tracing = "0.1"
-
-game_morton = { path = "../game_morton" }
-game_camera = { path = "../game_camera" }
+array-init = "2"
+game_lib = "*"
+game_core = "*"
+game_morton = "*"
+game_camera = "*"

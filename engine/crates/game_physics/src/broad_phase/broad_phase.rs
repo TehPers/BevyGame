@@ -1,5 +1,5 @@
 use crate::bodies::AxisAlignedBoundingBox;
-use bevy::math::Vec2;
+use game_lib::bevy::math::Vec2;
 
 pub trait BroadPhase<'a> {
     type Id;
