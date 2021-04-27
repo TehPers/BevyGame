@@ -43,18 +43,18 @@ layout(std140, set = 3, binding = 0) uniform RegionData_tile_data {
 void main() {
     if (Vertex_Tile_Index >= 256) {
         v_Color = vec4(0.0);
-        gl_Position = vec4(0.0);
+        gl_Position = vec4(10.0);
         return;
     }
 
     TileData tile_data = Tiles[Vertex_Tile_Index];
     vec4 tile_color = tile_data.tile_color;
-    int atlas_index = tile_data.atlas_index.x;
+    int atlas_index = tile_data.atlas_index;
 
     // Check if no tile is being rendered
     if (atlas_index < 0) {
         v_Color = vec4(0.0);
-        gl_Position = vec4(0.0);
+        gl_Position = vec4(10.0);
         return;
     }
 

@@ -5,7 +5,7 @@ use crate::{
     TileWorldRect,
 };
 use game_camera::{ProjectionExt, ScaledOrthographicProjection};
-use game_core::systems::RequiredAssetLoader;
+use game_core::loading::RequiredAssetLoader;
 use game_lib::{
     bevy::{
         prelude::*,

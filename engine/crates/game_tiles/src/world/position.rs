@@ -15,8 +15,7 @@ macro_rules! pos_type {
         $(#[$pos_meta:meta])* $pos_name:ident,
         $(#[$rect_meta:meta])* $rect_name:ident,
         $(#[$coord_meta:meta])* $coord_name:ident = $coord_ty:ty,
-        $zero:expr,
-        $one:expr,
+        ($zero:expr, $one:expr),
         [$($impl:tt),*]
     ) => {
         $(#[$coord_meta])*
@@ -57,11 +56,22 @@ macro_rules! pos_type {
                 $pos_name { x, y }
             }
 
-            pub fn offset(self, x: $coord_name, y: $coord_name) -> Self {
-                $pos_name {
-                    x: self.x + x,
-                    y: self.y + y,
-                }
+            pub fn offset(mut self, x: $coord_name, y: $coord_name) -> Self {
+                self.x += x;
+                self.y += y;
+                self
+            }
+
+            pub fn xx(self) -> Self {
+                $pos_name::new(self.x, self.x)
+            }
+
+            pub fn yx(self) -> Self {
+                $pos_name::new(self.y, self.x)
+            }
+
+            pub fn yy(self) -> Self {
+                $pos_name::new(self.y, self.y)
             }
         }
 
@@ -156,6 +166,10 @@ macro_rules! pos_type {
                 $rect_name { bottom_left, size }
             }
 
+            pub fn from_center(center: $pos_name, radius: $pos_name) -> Self {
+                $rect_name::new(center - radius, radius + radius)
+            }
+
             pub fn left(self) -> $coord_name {
                 self.bottom_left.x
             }
@@ -192,6 +206,14 @@ macro_rules! pos_type {
                 self.size
             }
 
+            pub fn width(self) -> $coord_name {
+                self.size.x
+            }
+
+            pub fn height(self) -> $coord_name {
+                self.size.y
+            }
+
             pub fn expand(mut self, diameter: $coord_name) -> Self {
                 self.bottom_left -= $pos_name::ONE * diameter;
                 self.size += $pos_name::ONE * diameter * ($one + $one);
@@ -204,9 +226,9 @@ macro_rules! pos_type {
             }
         }
 
-        $(pos_type!(@impl $impl, $pos_name, $rect_name, $coord_name);)*
+        $(pos_type!(@impl $impl, $pos_name, $rect_name, $coord_name, ($zero, $one));)*
     };
-    (@impl step, $pos_name:ident, $rect_name:ident, $coord_name:ident) => {
+    (@impl step, $pos_name:ident, $rect_name:ident, $coord_name:ident, ($_zero:expr, $_one:expr)) => {
         impl $rect_name {
             pub fn iter_positions(self) -> impl Iterator<Item = $pos_name> + Clone {
                 (self.bottom()..self.top()).flat_map(move |y| {
@@ -215,25 +237,53 @@ macro_rules! pos_type {
             }
         }
     };
-    (@impl signed, $pos_name:ident, $rect_name:ident, $coord_name:ident) => {
+    (@impl signed, $pos_name:ident, $rect_name:ident, $coord_name:ident, ($_zero:expr, $_one:expr)) => {
         impl $pos_name {
-            pub fn signum(self) -> Self {
-                $pos_name::new(self.x.signum(), self.y.signum())
+            pub fn signum(mut self) -> Self {
+                self.x = self.x.signum();
+                self.y = self.y.signum();
+                self
             }
         }
 
         impl Neg for $pos_name {
             type Output = Self;
 
-            fn neg(self) -> Self {
-                $pos_name::new(-self.x, -self.y)
+            fn neg(mut self) -> Self {
+                self.x = -self.x;
+                self.y = -self.y;
+                self
             }
         }
     };
-    (@impl float, $pos_name:ident, $rect_name:ident, $coord_name:ident) => {
+    (@impl float, $pos_name:ident, $rect_name:ident, $coord_name:ident, ($zero:expr, $one:expr)) => {
         impl $pos_name {
             pub fn is_finite(self) -> bool {
                 self.x.is_finite() && self.y.is_finite()
+            }
+
+            pub fn floor(mut self) -> Self {
+                self.x = self.x.floor();
+                self.y = self.y.floor();
+                self
+            }
+
+            pub fn ceil(mut self) -> Self {
+                self.x = self.x.ceil();
+                self.y = self.y.ceil();
+                self
+            }
+
+            pub fn round(mut self) -> Self {
+                self.x = self.x.round();
+                self.y = self.y.round();
+                self
+            }
+        }
+
+        impl $rect_name {
+            pub fn center(&self) -> $pos_name {
+                self.bottom_left + self.size / ($one + $one)
             }
         }
     };
@@ -249,8 +299,7 @@ pos_type!(
     TileWorldRect,
     /// A global coordinate within the world.
     TileWorldCoordinate = i32,
-    0,
-    1,
+    (0, 1),
     [step, signed]
 );
 
@@ -263,8 +312,7 @@ pos_type!(
     TileRegionRect,
     /// A region-local coordinate.
     TileRegionCoordinate = u8,
-    0,
-    1,
+    (0, 1),
     [step]
 );
 
@@ -280,8 +328,7 @@ pos_type!(
     /// scale than [WorldCoordinate] by being a coordinate given the world is
     /// split into [Region::Width] by [Region::HEIGHT] squares of tiles.
     RegionWorldCoordinate = i32,
-    0,
-    1,
+    (0, 1),
     [step, signed]
 );
 
@@ -292,8 +339,7 @@ pos_type!(
     EntityWorldRect,
     /// A coordinate of an entity within the world.
     EntityWorldCoordinate = f32,
-    0.0,
-    1.0,
+    (0.0, 1.0),
     [signed, float]
 );
 
@@ -363,22 +409,17 @@ impl TryFrom<TileWorldPosition> for TileRegionPosition {
     }
 }
 
-impl From<EntityWorldPosition> for TileWorldPosition {
-    fn from(value: EntityWorldPosition) -> Self {
-        TileWorldPosition::new(
-            value.x as TileWorldCoordinate,
-            value.y as TileWorldCoordinate,
-        )
-    }
-}
-
 impl From<EntityWorldRect> for TileWorldRect {
     fn from(value: EntityWorldRect) -> Self {
-        let bottom_left = value.bottom_left.into();
-        let top_right = value.top_right();
+        let bottom_left = value.bottom_left.floor();
+        let bottom_left = TileWorldPosition::new(
+            bottom_left.x as TileWorldCoordinate,
+            bottom_left.y as TileWorldCoordinate,
+        );
+        let top_right = value.top_right().ceil();
         let top_right = TileWorldPosition::new(
-            top_right.x.ceil() as TileWorldCoordinate,
-            top_right.y.ceil() as TileWorldCoordinate,
+            top_right.x as TileWorldCoordinate,
+            top_right.y as TileWorldCoordinate,
         );
         TileWorldRect::new(bottom_left, top_right - bottom_left)
     }

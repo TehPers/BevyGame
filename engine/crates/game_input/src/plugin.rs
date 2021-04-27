@@ -16,14 +16,14 @@ impl Plugin for InputPlugin {
             .init_resource::<CursorState>()
             .add_event::<UpdateCursorEvent>()
             .add_system_set_to_stage(
-                GameStage::PreUpdate,
+                GameStage::GamePreUpdate,
                 SystemSet::new()
                     .label(InputPlugin)
                     .label(InputSystem::PrepareInput)
                     .with_system(crate::systems::prepare_input.system()),
             )
             .add_system_set_to_stage(
-                GameStage::PreUpdate,
+                GameStage::GamePreUpdate,
                 SystemSet::new()
                     .label(InputPlugin)
                     .label(InputSystem::TranslateInput)
@@ -33,7 +33,7 @@ impl Plugin for InputPlugin {
                     .with_system(crate::systems::mouse_input.system()),
             )
             .add_system_set_to_stage(
-                GameStage::PreUpdate,
+                GameStage::GamePreUpdate,
                 SystemSet::new()
                     .label(InputPlugin)
                     .label(InputSystem::DetectCursorChange)
@@ -43,7 +43,7 @@ impl Plugin for InputPlugin {
                     .with_system(crate::systems::cursor_moved.system()),
             )
             .add_system_set_to_stage(
-                GameStage::PreUpdate,
+                GameStage::GamePreUpdate,
                 SystemSet::new()
                     .label(InputPlugin)
                     .label(InputSystem::TrackCursor)

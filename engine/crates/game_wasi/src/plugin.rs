@@ -10,6 +10,6 @@ impl Plugin for WasmPlugin {
             GameStage::Startup,
             SystemSet::new().with_system(crate::systems::setup_runner.system()),
         )
-        .add_system_to_stage(GameStage::Update, crate::systems::on_update.system());
+        .add_system_to_stage(GameStage::GameUpdate, crate::systems::on_update.system());
     }
 }

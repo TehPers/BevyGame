@@ -1,32 +1,8 @@
-use crate::RequiredAssets;
+use crate::loading::RequiredAssets;
 use game_lib::{
-    bevy::{
-        asset::{Asset, AssetPath, LoadState},
-        ecs::{self as bevy_ecs, schedule::ShouldRun, system::SystemParam},
-        prelude::*,
-    },
+    bevy::{asset::LoadState, ecs::schedule::ShouldRun, prelude::*},
     tracing::{self, instrument},
 };
-
-#[derive(SystemParam)]
-pub struct RequiredAssetLoader<'a> {
-    pub asset_server: Res<'a, AssetServer>,
-    pub required_assets: ResMut<'a, RequiredAssets>,
-}
-
-impl<'a> RequiredAssetLoader<'a> {
-    pub fn load_required<'b, T, P>(&mut self, path: P) -> Handle<T>
-    where
-        T: Asset,
-        P: Into<AssetPath<'a>>,
-    {
-        let handle = self.asset_server.load(path);
-        self.required_assets
-            .loading_assets
-            .push(handle.clone_untyped());
-        handle
-    }
-}
 
 #[instrument(skip(commands))]
 pub fn setup_main_loading(mut commands: Commands) {

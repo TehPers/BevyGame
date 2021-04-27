@@ -5,7 +5,7 @@ use crate::{
     TileWorldPosition, TileWorldRect,
 };
 use game_camera::CameraPlugin;
-use game_core::{GameStage, GlobalMode, MainLoadingMode, ModeEvent, modes::ModeExt};
+use game_core::{loading::MainLoadingMode, modes::ModeExt, GameStage, GlobalMode, ModeEvent};
 use game_lib::bevy::{ecs as bevy_ecs, prelude::*};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
@@ -31,7 +31,7 @@ impl Plugin for TilePlugin {
             .add_asset::<TileWorldVertexData>()
             .add_event::<WorldRedrawEvent>()
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(TilePlugin)
                     .label(TileSystem::SetupRendering)
@@ -40,7 +40,7 @@ impl Plugin for TilePlugin {
                     .with_system(crate::systems::setup_rendering.system()),
             )
             .add_system_set_to_stage(
-                GameStage::PreUpdate,
+                GameStage::GamePreUpdate,
                 SystemSet::new()
                     .label(TilePlugin)
                     .label(TileSystem::SetupWorld)
@@ -49,7 +49,7 @@ impl Plugin for TilePlugin {
                     .with_system(crate::systems::create_game_world.system()),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(TilePlugin)
                     .label(TileSystem::DetectRedraw)
@@ -60,7 +60,7 @@ impl Plugin for TilePlugin {
                     .with_system(crate::systems::camera_changed.system()),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(TilePlugin)
                     .label(TileSystem::Redraw)

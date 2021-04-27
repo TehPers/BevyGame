@@ -1,21 +1,35 @@
-use crate::bodies::AxisAlignedBoundingBox;
 use game_lib::{
     bevy::{ecs as bevy_ecs, prelude::*},
     derive_more::{Display, From, Into},
 };
-use game_tiles::EntityWorldPosition;
+use game_tiles::{EntityWorldPosition, EntityWorldRect};
 
 /// All the components needed for an entity to be registered with the physics
 /// engine.
 #[derive(Bundle, Default)]
 pub struct PhysicsBundle {
-    pub bounds: AxisAlignedBoundingBox,
+    pub bounds: EntityWorldRect,
     pub body_type: BodyType,
     pub mass: Mass,
 
     pub forces: Forces,
     pub acceleration: Acceleration,
     pub velocity: Velocity,
+
+    pub jump_status: JumpStatus,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Component)]
+pub enum JumpStatus {
+    OnGround,
+    InAir { jumps: u32 },
+}
+
+impl Default for JumpStatus {
+    fn default() -> Self {
+        JumpStatus::OnGround
+    }
 }
 
 /// How the body should be treated by the physics engine.
@@ -45,12 +59,14 @@ pub struct Velocity(pub EntityWorldPosition);
 
 /// Acceleration in `m/s^2`. This is reset to the null vector once it has been
 /// applied by the physics engine.
+// TODO: get rid of this
 #[derive(Clone, Copy, PartialEq, Debug, Default, From, Into, Reflect)]
 #[reflect(Component)]
 pub struct Acceleration(pub EntityWorldPosition);
 
 /// Force in `kg * m/s^2`. This is cleared once it has been applied by the
 /// physics engine.
+// TODO: get rid of this
 #[derive(Clone, PartialEq, Debug, Default, From, Into, Reflect)]
 #[reflect(Component)]
 pub struct Forces(pub Vec<EntityWorldPosition>);

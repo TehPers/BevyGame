@@ -48,7 +48,7 @@ impl TimedPlugin {
 impl Plugin for TimedPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_system_set_to_stage(
-            GameStage::PreUpdate,
+            GameStage::GamePreUpdate,
             SystemSet::new()
                 .label(TimedPlugin)
                 .with_system(Self::update_lifetimes.system()),

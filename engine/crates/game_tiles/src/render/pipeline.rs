@@ -1,4 +1,4 @@
-use game_core::systems::RequiredAssetLoader;
+use game_core::loading::RequiredAssetLoader;
 use game_lib::bevy::{
     prelude::*,
     reflect::TypeUuid,

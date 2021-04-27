@@ -1,6 +1,6 @@
 use crate::{
     bodies::AxisAlignedBoundingBox, systems, Acceleration, BodyType, Drag, EntityCollision, Forces,
-    Gravity, Mass, PhysicsState, TileCollision, Velocity,
+    Gravity, Mass, PhysicsState, TileCollision, Velocity, TileCollisionAxis
 };
 use game_core::{combinators::if_all, modes::ModeExt, GameStage, GlobalMode, ModeEvent};
 use game_lib::bevy::{ecs as bevy_ecs, prelude::*};
@@ -21,25 +21,26 @@ impl Plugin for PhysicsPlugin {
             .register_type::<AxisAlignedBoundingBox>()
             .register_type::<PhysicsState>()
             .register_type::<EntityCollision>()
+            .register_type::<TileCollisionAxis>()
             .register_type::<TileCollision>()
             .add_event::<EntityCollision>()
             .add_event::<TileCollision>()
             .add_system_set_to_stage(
-                GameStage::PreUpdate,
+                GameStage::GamePreUpdate,
                 SystemSet::new()
                     .label(PhysicsPlugin)
                     .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Enter))
                     .with_system(systems::setup.system()),
             )
             .add_system_set_to_stage(
-                GameStage::PostUpdate,
+                GameStage::GamePostUpdate,
                 SystemSet::new()
                     .label(PhysicsPlugin)
                     .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Exit))
                     .with_system(systems::cleanup.system()),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(PhysicsPlugin)
                     .label(PhysicsSystem::UpdateState)
@@ -47,7 +48,7 @@ impl Plugin for PhysicsPlugin {
                     .with_system(systems::update_physics_state.system()),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(PhysicsPlugin)
                     .label(PhysicsSystem::Prepare)
@@ -64,7 +65,7 @@ impl Plugin for PhysicsPlugin {
                     ),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(PhysicsPlugin)
                     .label(PhysicsSystem::Run)
@@ -76,7 +77,7 @@ impl Plugin for PhysicsPlugin {
                     .with_system(systems::step.system()),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(PhysicsPlugin)
                     .label(PhysicsSystem::Cleanup)
@@ -86,7 +87,7 @@ impl Plugin for PhysicsPlugin {
                     .with_system(systems::update_transforms.system()),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(PhysicsPlugin)
                     .label(PhysicsSystem::Cleanup)
@@ -95,7 +96,8 @@ impl Plugin for PhysicsPlugin {
                         GlobalMode::InGame.on(ModeEvent::Active),
                         Box::new(systems::if_physics_lagged.system()),
                     ]))
-                    .with_system(systems::cleanup_kinematics.system()),
+                    .with_system(systems::cleanup_kinematics.system())
+                    .with_system(systems::reset_jumps.system()),
             );
     }
 }

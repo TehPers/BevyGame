@@ -1,18 +1,18 @@
 use crate::{
-    bodies::AxisAlignedBoundingBox, Acceleration, BodyType, Drag, Forces, Gravity, Mass,
-    PhysicsState, TileCollision, Velocity,
+    Acceleration, BodyType, Drag, Forces, Gravity, JumpStatus, Mass, PhysicsState, TileCollision,
+    TileCollisionAxis, Velocity,
 };
 use game_lib::{
     bevy::{ecs::schedule::ShouldRun, prelude::*, tasks::ComputeTaskPool},
     tracing::{self, instrument},
 };
-use game_tiles::{
-    EntityWorldPosition, EntityWorldRect, GameWorld, Tile, TileWorldPosition, TileWorldRect,
-};
+use game_tiles::{EntityWorldPosition, EntityWorldRect, GameWorld, TileWorldRect};
 
-#[instrument(skip(commands))]
-pub fn setup(mut commands: Commands) {
-    commands.insert_resource(PhysicsState::default());
+#[instrument(skip(commands, state))]
+pub fn setup(mut commands: Commands, state: Option<Res<PhysicsState>>) {
+    if state.is_none() {
+        commands.insert_resource(PhysicsState::default());
+    }
 }
 
 #[instrument(skip(commands))]
@@ -110,7 +110,7 @@ pub fn step(
     let state = &mut *state;
 
     // Decrement queued steps
-    if let Some(queued_steps) = state.queued_steps.checked_shr(1) {
+    if let Some(queued_steps) = state.queued_steps.checked_sub(1) {
         state.queued_steps = queued_steps;
     }
 
@@ -127,124 +127,178 @@ pub fn step(
                     return;
                 }
 
-                #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-                enum CollisionAxis {
-                    X,
-                    Y,
-                }
+                // Calculate unobstructed movement amount
+                let target_offset = velocity.0 * state.step_timer.duration().as_secs_f32();
+                let mut next_bounds = *bounds;
+                let mut next_velocity = velocity.0;
+                const STEP: f32 = 1.0;
 
-                #[derive(Clone, PartialEq, Debug)]
-                struct CollisionData {
-                    axis: CollisionAxis,
-                    tile: Tile,
-                    tile_position: TileWorldPosition,
-                }
-
-                // Do tile collisions and calculate next bounds
-                let (next_bounds, collision_data) = info_span!("tiles").in_scope(|| {
-                    // Calculate next bounds
-                    let next_bounds: EntityWorldRect =
-                        bounds.offset(velocity.0 * state.step_timer.duration().as_secs_f32());
-
-                    // Get intersecting tiles
-                    let intersecting_tiles: TileWorldRect = (*bounds).into();
-                    let intersections = intersecting_tiles.iter_positions().flat_map(|position| {
-                        world
-                            .get_tile(position)
-                            // TODO: should the tiles be generated if not already?
-                            .ok()
-                            .copied()
-                            .flatten()
-                            .map(|tile| (position, tile))
-                    });
-
-                    // Calculate intersection depths
-                    let intersection_times = intersections
-                        .flat_map(|(position, tile)| {
-                            let tile_bounds =
-                                AxisAlignedBoundingBox::new(position.into(), Vec2::ONE);
-
-                            // Time (in seconds) to collide along x-axis
-                            let x_time = if velocity.0.x > 0.0 {
-                                Some(tile_bounds.left() - bounds.right()).filter(|&d| d >= 0.0)
-                            } else if velocity.0.x < 0.0 {
-                                Some(tile_bounds.right() - bounds.left()).filter(|&d| d <= 0.0)
-                            } else {
-                                None
-                            }
-                            .map(|d| {
-                                (
-                                    d / velocity.0.x,
-                                    CollisionData {
-                                        axis: CollisionAxis::X,
-                                        tile,
-                                        tile_position: position,
-                                    },
-                                )
-                            });
-
-                            // Time (in seconds) to collide along y-axis
-                            let y_time = if velocity.0.y > 0.0 {
-                                Some(tile_bounds.bottom() - bounds.top()).filter(|&d| d >= 0.0)
-                            } else if velocity.0.y < 0.0 {
-                                Some(tile_bounds.top() - bounds.bottom()).filter(|&d| d <= 0.0)
-                            } else {
-                                None
-                            }
-                            .map(|d| {
-                                (
-                                    d / velocity.0.y,
-                                    CollisionData {
-                                        axis: CollisionAxis::Y,
-                                        tile,
-                                        tile_position: position,
-                                    },
-                                )
-                            });
-
-                            std::iter::once(x_time)
-                                .chain(std::iter::once(y_time))
-                                .flatten()
-                        })
-                        .filter(|(t, ..)| t.is_finite());
-
-                    // Calculate minimum intersection time (first tile collision)
-                    intersection_times
-                        .min_by(|(a, ..), (b, ..)| a.partial_cmp(b).unwrap())
-                        .map(|(t, collision_data)| {
-                            (bounds.offset(velocity.0 * t), Some(collision_data))
-                        })
-                        .unwrap_or((next_bounds, None))
+                // Get an iterator over the bounds that will be checked along x-axis
+                let x_steps = std::iter::from_fn({
+                    let mut remaining = target_offset.x.abs();
+                    let offset_sign = target_offset.x.signum();
+                    let mut cur_bounds = next_bounds;
+                    move || {
+                        if remaining <= 0.0 {
+                            None
+                        } else if remaining <= STEP {
+                            cur_bounds =
+                                cur_bounds.offset(EntityWorldPosition::X * remaining * offset_sign);
+                            remaining = 0.0;
+                            Some(cur_bounds)
+                        } else {
+                            cur_bounds =
+                                cur_bounds.offset(EntityWorldPosition::X * STEP * offset_sign);
+                            remaining -= STEP;
+                            Some(cur_bounds)
+                        }
+                    }
                 });
 
-                // Resolve tile collision
-                if let Some(collision_data) = collision_data {
-                    // Send collision event
-                    tile_collisions_tx
-                        .send(TileCollision {
-                            entity,
-                            entity_velocity: velocity.0,
-                            tile: collision_data.tile,
-                            tile_position: collision_data.tile_position,
-                        })
-                        .unwrap();
+                for step in x_steps {
+                    // Get rectangle of tiles to check
+                    let mut checked_tiles = TileWorldRect::from(step);
+                    if velocity.0.x > 0.0 {
+                        checked_tiles.bottom_left.x += checked_tiles.size.x - 1;
+                        checked_tiles.size.x = 1;
+                    } else {
+                        checked_tiles.size.x = 1;
+                    };
 
-                    // Add friction while standing on a surface
-                    const FRICTION_COEFFICIENT: f32 = 0.8;
-                    if collision_data.axis == CollisionAxis::Y && velocity.0.y < 0.0 {
-                        // simplified friction, normal friction is F = mu * N
-                        velocity.0.x *= FRICTION_COEFFICIENT;
-                    }
+                    // Get all collided tiles
+                    let collisions = checked_tiles.iter_positions().flat_map(|position| {
+                        world
+                            .get_tile(position)
+                            .into_iter()
+                            .copied()
+                            .flatten()
+                            .map(move |tile| (tile, position))
+                    });
 
-                    // Adjust velocity due to tile collision
-                    match collision_data.axis {
-                        CollisionAxis::X => velocity.0.x = 0.0,
-                        CollisionAxis::Y => velocity.0.y = 0.0,
+                    // Resolve collisions
+                    let (collided, step_bounds, step_velocity) = collisions.fold(
+                        (false, step, next_velocity),
+                        |(_, mut next_bounds, mut next_velocity),
+                         (collision_tile, collision_pos)| {
+                            // Send collision event
+                            tile_collisions_tx
+                                .send(TileCollision {
+                                    entity,
+                                    entity_velocity: velocity.0,
+                                    axis: TileCollisionAxis::X,
+                                    tile: collision_tile,
+                                    tile_position: collision_pos,
+                                })
+                                .unwrap();
+
+                            // Update next bounds
+                            next_bounds.bottom_left.x = if velocity.0.x > 0.0 {
+                                collision_pos.x as f32 - next_bounds.width()
+                            } else {
+                                collision_pos.x as f32 + 1.0
+                            };
+
+                            // Update next velocity
+                            next_velocity.x = 0.0;
+
+                            (true, next_bounds, next_velocity)
+                        },
+                    );
+
+                    // Update position and velocity
+                    next_bounds = step_bounds;
+                    next_velocity = step_velocity;
+
+                    // Don't handle anymore x-axis collisions
+                    if collided {
+                        break;
                     }
                 }
 
-                // Update entity position
+                let y_steps = std::iter::from_fn({
+                    let mut remaining = target_offset.y.abs();
+                    let offset_sign = target_offset.y.signum();
+                    let mut cur_bounds = next_bounds;
+                    move || {
+                        if remaining <= 0.0 {
+                            None
+                        } else if remaining <= STEP {
+                            cur_bounds =
+                                cur_bounds.offset(EntityWorldPosition::Y * remaining * offset_sign);
+                            remaining = 0.0;
+                            Some(cur_bounds)
+                        } else {
+                            cur_bounds =
+                                cur_bounds.offset(EntityWorldPosition::Y * STEP * offset_sign);
+                            remaining -= STEP;
+                            Some(cur_bounds)
+                        }
+                    }
+                });
+
+                for step in y_steps {
+                    // Get rectangle of tiles to check
+                    let mut checked_tiles = TileWorldRect::from(step);
+                    if velocity.0.y > 0.0 {
+                        checked_tiles.bottom_left.y += checked_tiles.size.y - 1;
+                        checked_tiles.size.y = 1;
+                    } else {
+                        checked_tiles.size.y = 1;
+                    };
+
+                    // Get all collided tiles
+                    let collisions = checked_tiles.iter_positions().flat_map(|position| {
+                        world
+                            .get_tile(position)
+                            .into_iter()
+                            .copied()
+                            .flatten()
+                            .map(move |tile| (tile, position))
+                    });
+
+                    // Resolve collisions
+                    let (collided, step_bounds, step_velocity) = collisions.fold(
+                        (false, step, next_velocity),
+                        |(_, mut next_bounds, mut next_velocity),
+                         (collision_tile, collision_pos)| {
+                            // Send collision event
+                            tile_collisions_tx
+                                .send(TileCollision {
+                                    entity,
+                                    entity_velocity: velocity.0,
+                                    axis: TileCollisionAxis::Y,
+                                    tile: collision_tile,
+                                    tile_position: collision_pos,
+                                })
+                                .unwrap();
+
+                            // Update next bounds
+                            next_bounds.bottom_left.y = if velocity.0.y > 0.0 {
+                                collision_pos.y as f32 - next_bounds.width()
+                            } else {
+                                collision_pos.y as f32 + 1.0
+                            };
+
+                            // Update next velocity
+                            next_velocity.y = 0.0;
+
+                            (true, next_bounds, next_velocity)
+                        },
+                    );
+
+                    // Update position and velocity
+                    next_bounds = step_bounds;
+                    next_velocity = step_velocity;
+
+                    // Don't handle anymore x-axis collisions
+                    if collided {
+                        break;
+                    }
+                }
+
+                // Update entity
                 *bounds = next_bounds;
+                velocity.0 = next_velocity;
             },
         );
     });
@@ -253,215 +307,16 @@ pub fn step(
     tile_collisions.send_batch(tile_collisions_rx.into_iter());
 }
 
-// #[instrument(skip(
-//     pool,
-//     quadtree,
-//     state,
-//     tile_collisions,
-//     entity_collisions,
-//     world,
-//     query
-// ))]
-// pub fn step(
-//     pool: Res<ComputeTaskPool>,
-//     quadtree: Res<BroadPhaseQuadTree>,
-//     mut state: ResMut<PhysicsState>,
-//     mut tile_collisions: EventWriter<TileCollision>,
-//     mut entity_collisions: EventWriter<EntityCollision>,
-//     world: Res<GameWorld>,
-//     mut query: Query<(
-//         Entity,
-//         &mut AxisAlignedBoundingBox,
-//         &mut Velocity,
-//         &BodyType,
-//     )>,
-// ) {
-//     let state = &mut *state;
-
-//     // Decrement queued steps
-//     if let Some(queued_steps) = state.queued_steps.checked_shr(1) {
-//         state.queued_steps = queued_steps;
-//     }
-
-//     #[derive(Clone, Debug)]
-//     enum Collision {
-//         Entity(EntityCollision),
-//         Tile(TileCollision),
-//     }
-
-//     let (tx, rx) = game_lib::crossbeam::channel::unbounded();
-//     let quadtree = &*quadtree;
-//     let state = &*state;
-//     let world = &*world;
-//     info_span!("collisions").in_scope(|| {
-//         query.par_for_each_mut(
-//             &pool,
-//             25,
-//             move |(entity, mut bounds, mut velocity, &body_type)| {
-//                 // Only step on kinematic bodies
-//                 if body_type != BodyType::Kinematic {
-//                     return;
-//                 }
-
-//                 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-//                 enum CollisionAxis {
-//                     X,
-//                     Y,
-//                 }
-
-//                 #[derive(Clone, PartialEq, Debug)]
-//                 struct CollisionData {
-//                     axis: CollisionAxis,
-//                     tile: Tile,
-//                     tile_position: TileWorldPosition,
-//                 }
-
-//                 // Do tile collisions and calculate next bounds
-//                 let (next_bounds, collision_data) = info_span!("tiles").in_scope(|| {
-//                     // Calculate next bounds
-//                     let next_bounds: AxisAlignedBoundingBox =
-//                         *bounds + velocity.0 * state.step_timer.duration().as_secs_f32();
-
-//                     // Get intersecting tiles
-//                     // let intersections = world
-//                     //     .iter_intersecting(next_bounds.bottom_left(), next_bounds.top_right())
-//                     //     .flat_map(|(position, result)| {
-//                     //         match result {
-//                     //             Ok(tile) => tile,
-//                     //             Err(GetTileError::OutOfBounds(..)) => None,
-//                     //             Err(error) => {
-//                     //                 error!(
-//                     //                     ?error,
-//                     //                     "failure getting tile for collision checking: {}", error
-//                     //                 );
-//                     //                 None
-//                     //             }
-//                     //         }
-//                     //         .map(move |tile| (position, tile))
-//                     //     });
-
-//                     // Calculate intersection depths
-//                     // let intersection_times = intersections
-//                     //     .flat_map(|(position, tile)| {
-//                     //         let tile_bounds =
-//                     //             AxisAlignedBoundingBox::new(position.into(), Vec2::ONE);
-
-//                     //         // Time (in seconds) to collide along x-axis
-//                     //         let x_time = if velocity.0[0] > 0.0 {
-//                     //             Some(tile_bounds.left() - bounds.right()).filter(|&d| d >= 0.0)
-//                     //         } else if velocity.0[0] < 0.0 {
-//                     //             Some(tile_bounds.right() - bounds.left()).filter(|&d| d <= 0.0)
-//                     //         } else {
-//                     //             None
-//                     //         }
-//                     //         .map(|d| {
-//                     //             (
-//                     //                 d / velocity.0[0],
-//                     //                 CollisionData {
-//                     //                     axis: CollisionAxis::X,
-//                     //                     tile,
-//                     //                     tile_position: position,
-//                     //                 },
-//                     //             )
-//                     //         });
-
-//                     //         // Time (in seconds) to collide along y-axis
-//                     //         let y_time = if velocity.0[1] > 0.0 {
-//                     //             Some(tile_bounds.bottom() - bounds.top()).filter(|&d| d >= 0.0)
-//                     //         } else if velocity.0[1] < 0.0 {
-//                     //             Some(tile_bounds.top() - bounds.bottom()).filter(|&d| d <= 0.0)
-//                     //         } else {
-//                     //             None
-//                     //         }
-//                     //         .map(|d| {
-//                     //             (
-//                     //                 d / velocity.0[1],
-//                     //                 CollisionData {
-//                     //                     axis: CollisionAxis::Y,
-//                     //                     tile,
-//                     //                     tile_position: position,
-//                     //                 },
-//                     //             )
-//                     //         });
-
-//                     //         std::iter::once(x_time)
-//                     //             .chain(std::iter::once(y_time))
-//                     //             .flatten()
-//                     //     })
-//                     //     .filter(|(t, ..)| t.is_finite());
-
-//                     // Calculate minimum intersection time (first tile collision)
-//                     // let min_time =
-//                     //     intersection_times.min_by(|(a, ..), (b, ..)| a.partial_cmp(b).unwrap());
-//                     // min_time
-//                     //     .map(|(t, collision_data)| (*bounds + velocity.0 * t, Some(collision_data)))
-//                     //     .unwrap_or((next_bounds, None))
-//                     (next_bounds, Option::<CollisionData>::None)
-//                 });
-
-//                 // Resolve tile collision
-//                 if let Some(collision_data) = collision_data {
-//                     // Send collision event
-//                     tx.send(Collision::Tile(TileCollision {
-//                         entity,
-//                         entity_velocity: velocity.0,
-//                         tile: collision_data.tile,
-//                         tile_position: collision_data.tile_position,
-//                     }))
-//                     .unwrap();
-
-//                     // Add friction while standing on a surface
-//                     const FRICTION_COEFFICIENT: f32 = 0.8;
-//                     if collision_data.axis == CollisionAxis::Y && velocity.0[1] < 0.0 {
-//                         // simplified friction, normal friction is F = mu * N
-//                         velocity.0[0] *= FRICTION_COEFFICIENT;
-//                     }
-
-//                     // Adjust velocity due to tile collision
-//                     match collision_data.axis {
-//                         CollisionAxis::X => velocity.0[0] = 0.0,
-//                         CollisionAxis::Y => velocity.0[1] = 0.0,
-//                     }
-//                 }
-
-//                 // Update entity position
-//                 *bounds = next_bounds;
-
-//                 let bounds = *bounds;
-//                 info_span!("entities").in_scope(|| {
-//                     // Broad phase
-//                     let broad_collisions = quadtree.query_bounds(bounds);
-
-//                     // Narrow phase
-//                     let narrow_collisions = broad_collisions
-//                         .filter(|&entry| {
-//                             quadtree
-//                                 .get_bounds(entry)
-//                                 .filter(|other| bounds.intersects(other))
-//                                 .is_some()
-//                         })
-//                         .filter_map(|entry| quadtree.get(entry).copied());
-
-//                     for other_entity in narrow_collisions {
-//                         tx.send(Collision::Entity(EntityCollision {
-//                             entities: (entity, other_entity),
-//                         }))
-//                         .unwrap();
-//                     }
-//                 });
-//             },
-//         );
-//     });
-
-//     info_span!("process_collisions").in_scope(|| {
-//         for event in rx {
-//             match event {
-//                 Collision::Tile(event) => tile_collisions.send(event),
-//                 Collision::Entity(event) => entity_collisions.send(event),
-//             }
-//         }
-//     });
-// }
+#[instrument(skip(collisions, query))]
+pub fn reset_jumps(mut collisions: EventReader<TileCollision>, mut query: Query<&mut JumpStatus>) {
+    for collision in collisions.iter() {
+        if collision.axis == TileCollisionAxis::Y && collision.entity_velocity.y < 0.0 {
+            if let Ok(mut jump_status) = query.get_mut(collision.entity) {
+                *jump_status = JumpStatus::OnGround;
+            }
+        }
+    }
+}
 
 #[instrument(skip(query))]
 pub fn cleanup_kinematics(mut query: Query<&mut Acceleration>) {
@@ -470,17 +325,25 @@ pub fn cleanup_kinematics(mut query: Query<&mut Acceleration>) {
     }
 }
 
-#[instrument(skip(state, query))]
-pub fn update_transforms(
-    state: Res<PhysicsState>,
-    mut query: Query<(&mut Transform, &AxisAlignedBoundingBox, &Velocity)>,
-) {
-    for (mut transform, aabb, velocity) in query.iter_mut() {
-        let center = aabb.center().extend(transform.translation[2]);
-        let predicted_offset = Vec2::from(velocity.0).extend(0.0)
-            * state.step_timer.percent()
-            * state.step_timer.duration().as_secs_f32();
-        transform.translation = center + predicted_offset;
+// #[instrument(skip(state, query))]
+// pub fn update_transforms(
+//     state: Res<PhysicsState>,
+//     mut query: Query<(&mut Transform, &EntityWorldRect, &Velocity)>,
+// ) {
+//     for (mut transform, bounds, velocity) in query.iter_mut() {
+//         let center = Vec2::from(bounds.center()).extend(transform.translation[2]);
+//         let predicted_offset = Vec2::from(velocity.0).extend(0.0)
+//             * state.step_timer.percent()
+//             * state.step_timer.duration().as_secs_f32();
+//         transform.translation = center + predicted_offset;
+//         transform.translation;
+//     }
+// }
+
+#[instrument(skip(query))]
+pub fn update_transforms(mut query: Query<(&mut Transform, &EntityWorldRect)>) {
+    for (mut transform, bounds) in query.iter_mut() {
+        transform.translation = Vec2::from(bounds.center()).extend(transform.translation[2]);
         transform.translation;
     }
 }

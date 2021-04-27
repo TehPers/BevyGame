@@ -5,7 +5,7 @@ use game_lib::{
     bevy::{prelude::*, render::camera::Camera},
     tracing::{self, instrument},
 };
-use game_physics::Velocity;
+use game_physics::{JumpStatus, Velocity};
 
 #[instrument(skip(config, input))]
 pub fn cycle_camera_mode(mut config: ResMut<CameraConfig>, input: Res<Input<ActionInput>>) {
@@ -83,24 +83,39 @@ pub fn update_camera(
 }
 
 #[instrument(skip(input, query))]
-pub fn move_player(input: Res<Input<ActionInput>>, mut query: Query<&mut Velocity, With<Player>>) {
+pub fn move_player(
+    input: Res<Input<ActionInput>>,
+    mut query: Query<(&mut Velocity, &mut JumpStatus), With<Player>>,
+) {
     // Get direction to move
     const MOVE_SPEED: f32 = 5.0;
+    const JUMP_SPEED: f32 = 5.0;
     let mut move_velocity = Vec2::default();
+    let mut jump_velocity = None;
     if input.pressed(ActionInput::PlayerLeft) {
         move_velocity -= Vec2::X * MOVE_SPEED;
     }
     if input.pressed(ActionInput::PlayerRight) {
         move_velocity += Vec2::X * MOVE_SPEED;
     }
+    if input.pressed(ActionInput::PlayerJump) {
+        jump_velocity = Some(Vec2::Y * JUMP_SPEED);
+    }
 
     // Apply force
-    for mut velocity in query.iter_mut() {
+    for (mut velocity, mut jump_status) in query.iter_mut() {
         if move_velocity.length_squared() >= 0.1 {
             if move_velocity.x > 0.0 && move_velocity.x > velocity.0.x {
                 velocity.0.x = (velocity.0.x + move_velocity.x).min(move_velocity.x);
             } else if move_velocity.x < 0.0 && move_velocity.x < velocity.0.x {
                 velocity.0.x = (velocity.0.x + move_velocity.x).max(move_velocity.x);
+            }
+        }
+
+        if *jump_status == JumpStatus::OnGround {
+            if let Some(jump_velocity) = jump_velocity {
+                velocity.0.y = (velocity.0.y + jump_velocity.y).min(jump_velocity.y);
+                *jump_status = JumpStatus::InAir { jumps: 1 };
             }
         }
     }

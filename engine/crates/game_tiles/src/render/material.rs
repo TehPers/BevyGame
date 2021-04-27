@@ -13,7 +13,7 @@ use game_lib::bevy::{
 #[derive(Debug, RenderResources, TypeUuid)]
 #[uuid = "ffa702fe-f6f0-473c-be92-c48e13eec041"]
 pub struct RegionData {
-    pub tile_data: Box<[RegionTileData; Region::TILES]>,
+    pub tile_data: [RegionTileData; Region::TILES],
 }
 
 pub struct RegionBuffer {
@@ -35,7 +35,7 @@ impl From<&Region> for RegionData {
             .unwrap();
 
         RegionData {
-            tile_data: Box::new(tile_data),
+            tile_data,
         }
     }
 }

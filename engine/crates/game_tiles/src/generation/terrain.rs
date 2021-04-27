@@ -1,39 +1,50 @@
-use crate::{generation::WorldGenerator, Region, RegionWorldPosition, Tile, TileWorldPosition};
+use crate::{
+    generation::{Waves, WavesConfig, WorldGenerator},
+    Region, RegionWorldPosition, Tile, TileWorldPosition,
+};
 use game_lib::rand::Rng;
-use std::{convert::TryInto, f32::consts::TAU};
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-struct Wave {
-    amplitude: f32,
-    wavelength: f32,
-    phase: f32,
-}
+use std::convert::TryInto;
 
 #[derive(Debug)]
 pub struct TerrainWorldGenerator {
-    terrain_waves: Vec<Wave>,
+    terrain_waves: Waves,
+    dirt_waves: Waves,
 }
 
 impl TerrainWorldGenerator {
     pub fn new_random<R: Rng>(rand: &mut R) -> Self {
         // mountains:
-        // let terrain_waves = (0..rand.gen_range(3..=6))
-        //     .map(|_| Wave {
-        //         amplitude: rand.gen_range(5.0..=20.0),
-        //         wavelength: rand.gen_range(50.0..=250.0),
-        //         phase: rand.gen_range(0.0..=1000.0),
-        //     })
-        //     .collect();
+        // let terrain_waves = Waves::new_rand(rand, WavesConfig {
+        //     waves: 3..=6,
+        //     amplitude: 5.0..=20.0,
+        //     wavelength: 50.0..=250.0,
+        //     phase: 0.0..=1000.0,
+        // });
 
-        let terrain_waves = (0..rand.gen_range(10..=20))
-            .map(|_| Wave {
-                amplitude: rand.gen_range(0.5..=5.0),
-                wavelength: rand.gen_range(50.0..=500.0),
-                phase: rand.gen_range(0.0..=1000.0),
-            })
-            .collect();
+        let terrain_waves = Waves::new_rand(
+            rand,
+            WavesConfig {
+                waves: 10..=20,
+                amplitude: 0.5..=5.0,
+                wavelength: 50.0..=500.0,
+                phase: 0.0..=1000.0,
+            },
+        );
 
-        TerrainWorldGenerator { terrain_waves }
+        let dirt_waves = Waves::new_rand(
+            rand,
+            WavesConfig {
+                waves: 5..=10,
+                amplitude: 1.0..=1.5,
+                wavelength: 100.0..=500.0,
+                phase: 0.0..=1000.0,
+            },
+        );
+
+        TerrainWorldGenerator {
+            terrain_waves,
+            dirt_waves,
+        }
     }
 }
 
@@ -41,20 +52,11 @@ impl WorldGenerator for TerrainWorldGenerator {
     fn populate_region(&mut self, region_position: RegionWorldPosition, region: &mut Region) {
         let world_position: TileWorldPosition = region_position.into();
         for x in (0..Region::WIDTH.into()).map(|x| x + world_position.x) {
-            let terrain_height = self.terrain_waves.iter().fold(100.0, |acc, wave| {
-                let Wave {
-                    amplitude,
-                    wavelength,
-                    phase,
-                } = wave;
-
-                let x = x as f32;
-                let offset = amplitude * f32::sin(TAU / wavelength * x + phase);
-                acc + offset
-            }) as i32;
+            let terrain_height = (100.0 + self.terrain_waves.get(x as f32)) as i32;
+            let dirt_height = (10.0 + self.dirt_waves.get(x as f32)).max(0.0) as i32;
 
             // Stone
-            for y in 0..terrain_height - 10 {
+            for y in 0..terrain_height - dirt_height {
                 let region_position = TileWorldPosition::new(x, y) - world_position;
                 if let Ok(region_position) = region_position.try_into() {
                     if let Ok(tile) = region.get_mut(region_position) {
@@ -64,7 +66,7 @@ impl WorldGenerator for TerrainWorldGenerator {
             }
 
             // Dirt
-            for y in (terrain_height - 10)..terrain_height {
+            for y in (terrain_height - dirt_height)..terrain_height {
                 let region_position = TileWorldPosition::new(x, y) - world_position;
                 if let Ok(region_position) = region_position.try_into() {
                     if let Ok(tile) = region.get_mut(region_position) {

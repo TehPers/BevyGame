@@ -24,7 +24,7 @@ impl Plugin for CameraPlugin {
                     .with_system(crate::systems::setup.system()),
             )
             .add_system_set_to_stage(
-                GameStage::Update,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(CameraPlugin)
                     .label(CameraSystem::DetectProjectionChange)

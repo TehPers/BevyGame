@@ -21,7 +21,7 @@ game_lib::fix_bevy_derive!(game_lib::bevy);
 #[bevy_main]
 fn main() {
     App::build()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(Color::rgb_u8(135, 206, 235)))
         .insert_resource(WindowDescriptor {
             title: "Tiles".into(),
             ..Default::default()
@@ -32,6 +32,7 @@ fn main() {
         .add_plugin(DiagnosticsPlugin)
         .add_plugin(crate::core::CorePlugin)
         .add_plugin(crate::core::random::RandomPlugin)
+        .add_plugin(crate::core::loading::LoadingPlugin)
         .add_plugin(crate::tiles::TilePlugin)
         .add_plugin(crate::camera::CameraPlugin)
         .add_plugin(crate::physics::PhysicsPlugin)
@@ -43,7 +44,9 @@ fn main() {
         .add_plugin(crate::plugins::TimedPlugin)
         // .add_plugin(crate::wasi::WasmPlugin)
         .insert_resource(PhysicsState {
-            drag: Drag::from_terminal_velocity(10.0, 62.0, 9.81),
+            // drag: Drag::from_terminal_velocity(10.0, 62.0, 98.1),
+            drag: Drag::from_terminal_velocity(300.0, 62.0, 9.81),
+            // gravity: Gravity(EntityWorldPosition::ZERO),
             gravity: Gravity(EntityWorldPosition::Y * -9.81),
             // gravity: Gravity(EntityWorldPosition::ZERO),
             ..Default::default()

@@ -22,7 +22,7 @@ impl Plugin for RandomPlugin {
                     .with_system(crate::random::systems::setup.system()),
             )
             .add_system_set_to_stage(
-                GameStage::PreUpdate,
+                GameStage::GamePreUpdate,
                 SystemSet::new()
                     .label(RandomPlugin)
                     .with_system(crate::random::systems::reset_random.system()),

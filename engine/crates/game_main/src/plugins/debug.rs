@@ -2,7 +2,7 @@ use crate::{
     camera::{ProjectionExt, ScaledOrthographicProjection},
     controller::Player,
     input::CursorState,
-    physics::{bodies::AxisAlignedBoundingBox, BodyType, PhysicsBundle},
+    physics::PhysicsBundle,
     plugins::{config::DebugConfig, timed::Timed},
 };
 use game_camera::CameraPlugin;
@@ -19,7 +19,7 @@ use game_lib::{
     tracing::{self, instrument},
 };
 use game_physics::{PhysicsPlugin, Velocity};
-use game_tiles::{EntityWorldPosition, RegionWorldPosition};
+use game_tiles::{EntityWorldPosition, EntityWorldRect, RegionWorldPosition};
 use std::{fmt::Write, time::Duration, writeln};
 
 struct DebugText;
@@ -179,13 +179,13 @@ impl DebugPlugin {
         config: Res<DebugConfig>,
         input: Res<Input<MouseButton>>,
         cursor_state: Res<CursorState>,
-        mut player_query: Query<(&mut AxisAlignedBoundingBox, &mut Velocity), With<Player>>,
+        mut player_query: Query<(&mut EntityWorldRect, &mut Velocity), With<Player>>,
     ) {
         if config.enable_teleporting && input.pressed(MouseButton::Left) {
             for (mut bounds, mut velocity) in player_query.iter_mut() {
-                *bounds = AxisAlignedBoundingBox::from_center(
+                *bounds = EntityWorldRect::from_center(
                     cursor_state.world_position.into(),
-                    bounds.size(),
+                    bounds.size() / 2.0,
                 );
                 velocity.0 = EntityWorldPosition::ZERO;
             }
@@ -212,11 +212,10 @@ impl DebugPlugin {
                     ..Default::default()
                 })
                 .insert_bundle(PhysicsBundle {
-                    bounds: AxisAlignedBoundingBox::from_center(
+                    bounds: EntityWorldRect::from_center(
                         cursor_state.world_position.into(),
-                        size,
+                        (size / 2.0).into(),
                     ),
-                    body_type: BodyType::Static,
                     ..Default::default()
                 })
                 .insert(Timed::new(Duration::from_secs_f32(3.0)));
@@ -227,14 +226,14 @@ impl DebugPlugin {
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_system_set_to_stage(
-            GameStage::PreUpdate,
+            GameStage::GamePreUpdate,
             SystemSet::new()
                 .label(DebugPlugin)
                 .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Enter))
                 .with_system(Self::setup_debug_text.system()),
         )
         .add_system_set_to_stage(
-            GameStage::Update,
+            GameStage::GameUpdate,
             SystemSet::new()
                 .label(DebugPlugin)
                 .label(DebugSystem::ProcessInput)
@@ -242,7 +241,7 @@ impl Plugin for DebugPlugin {
                 .with_system(Self::debug_input.system()),
         )
         .add_system_set_to_stage(
-            GameStage::Update,
+            GameStage::GameUpdate,
             SystemSet::new()
                 .label(DebugPlugin)
                 .label(DebugSystem::HandleInput)
@@ -254,7 +253,7 @@ impl Plugin for DebugPlugin {
                 .with_system(Self::spawn_on_click.system()),
         )
         .add_system_set_to_stage(
-            GameStage::Update,
+            GameStage::GameUpdate,
             SystemSet::new()
                 .label(DebugPlugin)
                 .label(DebugSystem::ShowDebugInfo)
@@ -263,7 +262,8 @@ impl Plugin for DebugPlugin {
                 .after(ControllerSystem::UpdateCamera)
                 .after(CameraPlugin)
                 .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Active))
-                .with_system(Self::update_debug_text.system()),
+                // TODO: this is slow af
+                // .with_system(Self::update_debug_text.system()),
         );
     }
 }
