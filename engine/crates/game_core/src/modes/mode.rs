@@ -73,30 +73,82 @@ impl<T: Component + Debug + Eq> Mode<T> {
     }
 
     pub fn if_active(value: T) -> BoxedSystem<(), ShouldRun> {
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum DelayState {
+            Delayed,
+            Ready,
+        }
+
+        struct LocalState<T> {
+            target: T,
+            delay: DelayState,
+        }
+
         Box::new(
-            (|mode: ResMut<Mode<T>>, target: Local<Option<T>>| -> ShouldRun {
-                target
-                    .as_ref()
-                    .filter(|&target| mode.get() == target)
-                    .map(|_| ShouldRun::Yes)
-                    .unwrap_or(ShouldRun::No)
+            (|mode: ResMut<Mode<T>>, mut state: Local<Option<LocalState<T>>>| -> ShouldRun {
+                let state = state.as_mut().unwrap();
+                if mode.get() == &state.target {
+                    match state.delay {
+                        DelayState::Ready if mode.state == ModeState::Changed => {
+                            state.delay = DelayState::Delayed;
+                            ShouldRun::NoAndCheckAgain
+                        }
+                        DelayState::Delayed | DelayState::Ready => {
+                            state.delay = DelayState::Ready;
+                            ShouldRun::Yes
+                        }
+                    }
+                } else {
+                    ShouldRun::No
+                }
             })
             .system()
-            .config(|(_, target)| *target = Some(Some(value))),
+            .config(|(_, state)| {
+                *state = Some(Some(LocalState {
+                    target: value,
+                    delay: DelayState::Ready,
+                }))
+            }),
         )
     }
 
     pub fn if_inactive(value: T) -> BoxedSystem<(), ShouldRun> {
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum DelayState {
+            Delayed,
+            Ready,
+        }
+
+        struct LocalState<T> {
+            target: T,
+            delay: DelayState,
+        }
+
         Box::new(
-            (|mode: ResMut<Mode<T>>, target: Local<Option<T>>| -> ShouldRun {
-                target
-                    .as_ref()
-                    .filter(|&target| mode.get() != target)
-                    .map(|_| ShouldRun::Yes)
-                    .unwrap_or(ShouldRun::No)
+            (|mode: ResMut<Mode<T>>, mut state: Local<Option<LocalState<T>>>| -> ShouldRun {
+                let state = state.as_mut().unwrap();
+                if mode.get() != &state.target {
+                    match state.delay {
+                        DelayState::Ready if mode.state == ModeState::Changed => {
+                            state.delay = DelayState::Delayed;
+                            ShouldRun::NoAndCheckAgain
+                        }
+                        DelayState::Delayed | DelayState::Ready => {
+                            state.delay = DelayState::Ready;
+                            ShouldRun::Yes
+                        }
+                    }
+                } else {
+                    ShouldRun::No
+                }
             })
             .system()
-            .config(|(_, target)| *target = Some(Some(value))),
+            .config(|(_, state)| {
+                *state = Some(Some(LocalState {
+                    target: value,
+                    delay: DelayState::Ready,
+                }))
+            }),
         )
     }
 
@@ -119,7 +171,7 @@ impl<T: Component + Debug + Eq> Mode<T> {
             (|mode: ResMut<Mode<T>>, target: Local<Option<T>>| -> ShouldRun {
                 target
                     .as_ref()
-                    .filter(|&target| mode.get() != target)
+                    .filter(|&target| mode.state == ModeState::Changed && mode.get() != target)
                     .and_then(|target| mode.get_prev().filter(|&prev| prev == target))
                     .map(|_| ShouldRun::Yes)
                     .unwrap_or(ShouldRun::No)

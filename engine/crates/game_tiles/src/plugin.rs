@@ -40,7 +40,7 @@ impl Plugin for TilePlugin {
                     .with_system(crate::systems::setup_rendering.system()),
             )
             .add_system_set_to_stage(
-                GameStage::GamePreUpdate,
+                GameStage::GameUpdate,
                 SystemSet::new()
                     .label(TilePlugin)
                     .label(TileSystem::SetupWorld)
@@ -54,6 +54,7 @@ impl Plugin for TilePlugin {
                     .label(TilePlugin)
                     .label(TileSystem::DetectRedraw)
                     .after(CameraPlugin)
+                    .after(TileSystem::SetupWorld)
                     .in_ambiguity_set(TileSystem::DetectRedraw)
                     .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Active))
                     .with_system(crate::systems::world_changed.system())
