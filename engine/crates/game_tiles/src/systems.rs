@@ -79,7 +79,6 @@ pub fn camera_changed(
     commands,
     last_rect,
     redraw_event,
-    region_data,
     windows,
     world,
     region_query,
@@ -89,10 +88,9 @@ pub fn update_visible_regions(
     mut commands: Commands,
     mut last_rect: Local<RegionWorldRect>,
     mut redraw_event: EventReader<WorldRedrawEvent>,
-    mut region_data: ResMut<Assets<RegionData>>,
     windows: Res<Windows>,
     mut world: ResMut<GameWorld>,
-    region_query: Query<(Entity, &RegionWorldPosition, &Handle<RegionData>)>,
+    mut region_query: Query<(Entity, &RegionWorldPosition, &mut RegionData)>,
     camera_query: Query<(&ScaledOrthographicProjection, &Camera, &Transform)>,
 ) {
     if let Some(world_changed) = redraw_event.iter().fold(None, |acc, cur| {
@@ -134,7 +132,7 @@ pub fn update_visible_regions(
         *last_rect = visible_rect;
 
         let mut visible_regions: HashMap<_, _> = region_query
-            .iter()
+            .iter_mut()
             .map(|(entity, &position, data)| (position, (entity, data)))
             .collect();
 
@@ -150,24 +148,21 @@ pub fn update_visible_regions(
 
             // Remove the entity to prevent it from being despawned later
             match visible_regions.remove(&position) {
-                Some((_, region_data_handle)) => {
+                Some((_, mut region_data)) => {
                     // Update existing region entity
-                    if let Some(region_data) = region_data.get_mut(region_data_handle) {
-                        *region_data = RegionData::from(region);
-                    }
+                    *region_data = RegionData::from(region);
                 }
                 None => {
                     // Create new region entity
                     let region_world_pos = TileWorldPosition::from(position);
                     commands.spawn_bundle(RegionBundle {
                         position,
-                        region_data: region_data.add(RegionData::from(region)),
                         transform: Transform::from_xyz(
                             region_world_pos.x as f32,
                             region_world_pos.y as f32,
                             0.0,
                         ),
-                        ..Default::default()
+                        ..RegionBundle::new_defaults(RegionData::from(region))
                     });
                 }
             }

@@ -68,7 +68,7 @@ impl Plugin for LoadingPlugin {
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, AmbiguitySetLabel)]
 pub enum MainLoadingMode {
     /// While requesting assets. This state immediately transitions to
-    /// [`MainLoadingState::WaitForAssets`] after a single update tick
+    /// [`MainLoadingMode::WaitForAssets`] after a single update tick
     RequestAssets,
 
     /// While waiting for required assets to load. Once all required assets are
@@ -78,9 +78,6 @@ pub enum MainLoadingMode {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
 pub enum MainLoadingSystem {
-    /// Stage: [`GameStage::PreUpdate`]
     Setup,
-
-    /// Stage: [`GameStage::PostUpdate`]
     CheckIfLoaded,
 }

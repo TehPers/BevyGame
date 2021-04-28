@@ -4,11 +4,6 @@
 #define REGION_HEIGHT 16
 #define REGION_TILES (REGION_WIDTH * REGION_HEIGHT)
 
-layout(location = 0) in vec3 Vertex_Position;
-layout(location = 1) in vec2 Vertex_Uv;
-layout(location = 2) in int Vertex_Tile_Index;
-// layout(location = 3) in vec4 Vertex_Color;
-
 layout(location = 0) out vec2 v_Uv;
 layout(location = 1) out vec4 v_Color;
 
@@ -41,13 +36,26 @@ layout(std140, set = 3, binding = 0) uniform RegionData_tile_data {
 };
 
 void main() {
-    if (Vertex_Tile_Index >= 256) {
+    uint vertex_index = gl_VertexIndex;
+
+    // 4 vertices per tile, divide by 4 to get tile index
+    uint tile_index = vertex_index >> 2;
+    if (tile_index >= 256) {
         v_Color = vec4(0.0);
         gl_Position = vec4(10.0);
         return;
     }
 
-    TileData tile_data = Tiles[Vertex_Tile_Index];
+    // Tile position can be determined from the index
+    vec2 tile_position = vec2(tile_index % 16, tile_index / 16);
+
+    // Offset can be determined from last two bits
+    vec2 pos_offset = vec2((vertex_index >> 1) & 1, vertex_index & 1);
+
+    // UV offset can also be determined from last two bits
+    vec2 uv_offset = vec2(pos_offset.x, 1 - pos_offset.y);
+
+    TileData tile_data = Tiles[tile_index];
     vec4 tile_color = tile_data.tile_color;
     int atlas_index = tile_data.atlas_index;
 
@@ -58,11 +66,11 @@ void main() {
         return;
     }
 
-    // Get UV
+    // Get actual UV
     Rect sprite = Textures[atlas_index];
     vec2 sprite_size = sprite.end - sprite.begin;
     
     v_Color = tile_color;
-    v_Uv = floor(sprite.begin + sprite_size * Vertex_Uv + vec2(0.01, 0.01)) / AtlasSize;
-    gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
+    v_Uv = floor(sprite.begin + sprite_size * uv_offset + vec2(0.01, 0.01)) / AtlasSize;
+    gl_Position = ViewProj * Model * vec4(tile_position + pos_offset, 0.0, 1.0);
 }

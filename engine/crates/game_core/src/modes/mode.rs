@@ -73,12 +73,13 @@ impl<T: Component + Debug + Eq> Mode<T> {
     }
 
     pub fn if_active(value: T) -> BoxedSystem<(), ShouldRun> {
-        #[derive(Clone, Copy, PartialEq, Eq)]
+        #[derive(Clone, Copy, PartialEq, Eq, Debug)]
         enum DelayState {
             Delayed,
             Ready,
         }
 
+        #[derive(Debug)]
         struct LocalState<T> {
             target: T,
             delay: DelayState,
@@ -113,12 +114,13 @@ impl<T: Component + Debug + Eq> Mode<T> {
     }
 
     pub fn if_inactive(value: T) -> BoxedSystem<(), ShouldRun> {
-        #[derive(Clone, Copy, PartialEq, Eq)]
+        #[derive(Clone, Copy, PartialEq, Eq, Debug)]
         enum DelayState {
             Delayed,
             Ready,
         }
 
+        #[derive(Debug)]
         struct LocalState<T> {
             target: T,
             delay: DelayState,

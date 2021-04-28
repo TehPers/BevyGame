@@ -226,9 +226,10 @@ impl DebugPlugin {
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_system_set_to_stage(
-            GameStage::GamePreUpdate,
+            GameStage::GameUpdate,
             SystemSet::new()
                 .label(DebugPlugin)
+                .label(DebugSystem::SetupText)
                 .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Enter))
                 .with_system(Self::setup_debug_text.system()),
         )
@@ -259,6 +260,7 @@ impl Plugin for DebugPlugin {
                 .label(DebugSystem::ShowDebugInfo)
                 .after(PhysicsPlugin)
                 .after(DebugSystem::HandleInput)
+                .after(DebugSystem::SetupText)
                 .after(ControllerSystem::UpdateCamera)
                 .after(CameraPlugin)
                 .with_run_criteria(GlobalMode::InGame.on(ModeEvent::Active))
@@ -270,6 +272,7 @@ impl Plugin for DebugPlugin {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, SystemLabel)]
 pub enum DebugSystem {
+    SetupText,
     ProcessInput,
     HandleInput,
     ShowDebugInfo,

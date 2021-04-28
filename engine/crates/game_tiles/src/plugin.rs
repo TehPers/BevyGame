@@ -1,8 +1,6 @@
 use crate::{
-    render::{RegionData, TileWorldMaterial, TileWorldVertexData},
-    systems::WorldRedrawEvent,
-    RegionWorldPosition, RegionWorldRect, Tile, TileRegionPosition, TileRegionRect,
-    TileWorldPosition, TileWorldRect,
+    render::RegionData, systems::WorldRedrawEvent, RegionWorldPosition, RegionWorldRect, Tile,
+    TileRegionPosition, TileRegionRect, TileWorldPosition, TileWorldRect,
 };
 use game_camera::CameraPlugin;
 use game_core::{loading::MainLoadingMode, modes::ModeExt, GameStage, GlobalMode, ModeEvent};
@@ -27,8 +25,6 @@ impl Plugin for TilePlugin {
             // .register_type::<Region>()
             // .register_type::<GameWorld>()
             .add_asset::<RegionData>()
-            .add_asset::<TileWorldMaterial>()
-            .add_asset::<TileWorldVertexData>()
             .add_event::<WorldRedrawEvent>()
             .add_system_set_to_stage(
                 GameStage::GameUpdate,

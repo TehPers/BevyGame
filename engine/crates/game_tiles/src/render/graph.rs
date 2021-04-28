@@ -1,17 +1,17 @@
 use crate::render::{
-    node::{REGION_DATA},
+    node::REGION_DATA,
     pipeline::{
         build_region_pipeline, REGION_MESH_HANDLE, REGION_PIPELINE_HANDLE,
         REGION_TEXTURE_ATLAS_HANDLE,
     },
-    RegionData, RegionMesh
+    RegionData, RegionMesh,
 };
 use game_core::loading::RequiredAssetLoader;
 use game_lib::bevy::{
     prelude::*,
     render::{
         pipeline::PipelineDescriptor,
-        render_graph::{base::node, AssetRenderResourcesNode, RenderGraph},
+        render_graph::{base::node, RenderGraph, RenderResourcesNode},
     },
 };
 
@@ -22,10 +22,7 @@ pub fn add_region_render_graph(
     texture_atlases: &mut Assets<TextureAtlas>,
     asset_loader: &mut RequiredAssetLoader,
 ) {
-    graph.add_system_node(
-        REGION_DATA,
-        AssetRenderResourcesNode::<RegionData>::new(false),
-    );
+    graph.add_system_node(REGION_DATA, RenderResourcesNode::<RegionData>::new(false));
     graph.add_node_edge(REGION_DATA, node::MAIN_PASS).unwrap();
 
     meshes.set_untracked(REGION_MESH_HANDLE, RegionMesh::default().into());
