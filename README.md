@@ -1,6 +1,6 @@
-# WasmGame
+# BevyGame
 
-Work in progress experiment using WASM modules to add components to a game.
+Work in progress game.
 
 ## Building and running
 
